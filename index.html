@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#15803d">
+  <title>ソフトテニス 練習メニュービルダー</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Hiragino Kaku Gothic Pro', 'Noto Sans JP', 'Meiryo', sans-serif; background: #f0fdf4; min-height: 100vh; }
+    #root { min-height: 100vh; }
+    button { font-family: inherit; }
+    input, select, textarea { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const CATEGORIES = ["ウォームアップ","外周","基礎打ち","球出し練習","ラリー","サーブ・レシーブ","ゲーム形式","フィジカル","クールダウン"];
+const CAT_COLOR = {
+  "ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6",
+  "ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e",
+  "フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c",
+};
+const GRADE_OPTS  = [{value:"",label:"全学年"},{value:"1年",label:"1年"},{value:"2年",label:"2年"},{value:"3年",label:"3年"}];
+const GENDER_OPTS = [{value:"",label:"男女共通"},{value:"男子",label:"男子"},{value:"女子",label:"女子"},{value:"混合",label:"混合"}];
+const formatTarget = (g,s) => { const r=(g||"")+(s||""); return r||"全体"; };
+const SET_LABEL_COLOR = {"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"};
+const SET_PRESETS = {1:[],2:["フォア","バック"],3:["フォア","バック","回り込み"],4:["フォア","バック","フォア","バック"],6:["フォア","バック","回り込み","フォア","バック","回り込み"]};
+const SET_OPTIONS = [1,2,3,4,6];
+const autoSetLabels = n => SET_PRESETS[n]||[];
+const EMPTY_FORM = {name:"",category:CATEGORIES[0],minutesPerSet:5,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:""};
+const DEFAULT_DRILLS = [
+  {id:"d1",name:"ランニング・動的ストレッチ",category:"ウォームアップ",duration:10,minutesPerSet:10,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"軽いランニングと動的ストレッチで体を温める"},
+  {id:"d2",name:"外周ランニング",category:"外周",duration:0,minutesPerSet:0,sets:2,setLabels:[],grade:"",gender:"",timeUnit:"lap",lapsPerSet:3,description:"グラウンド外周を一定ペースで走る"},
+  {id:"d3",name:"乱打（ストローク）",category:"基礎打ち",duration:15,minutesPerSet:15,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"フォア・バック交互に安定したラリーを続ける"},
+  {id:"d4",name:"球出し練習",category:"球出し練習",duration:10,minutesPerSet:5,sets:2,setLabels:["フォア","バック"],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"コーチ/先輩が出す球を正確に返球"},
+  {id:"d5",name:"クロスラリー",category:"ラリー",duration:15,minutesPerSet:15,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"クロスコートで深いラリーを意識して続ける"},
+  {id:"d6",name:"サーブ練習",category:"サーブ・レシーブ",duration:10,minutesPerSet:10,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"フラット・スピン・スライスを各10本ずつ"},
+  {id:"d7",name:"ゲーム練習（ダブルス）",category:"ゲーム形式",duration:20,minutesPerSet:20,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"本番を意識したダブルスのゲーム形式"},
+  {id:"d8",name:"静的ストレッチ",category:"クールダウン",duration:10,minutesPerSet:10,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"使った部位を中心にしっかり静的ストレッチ"},
+];
+
+// ─── Storage (localStorage) ───────────────────────────────────────────────────
+function lsGet(key, fallback) { try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback; } catch { return fallback; } }
+function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function groupRows(items) {
+  const rows=[], seen={};
+  for (const item of items) {
+    const gid=item.groupId||null;
+    if (!gid) { rows.push([item]); continue; }
+    if (seen[gid]!==undefined) { rows[seen[gid]].push(item); }
+    else { seen[gid]=rows.length; rows.push([item]); }
+  }
+  return rows;
+}
+function timeLabelStr(item) {
+  if (item.timeUnit==="lap") { const l=item.lapsPerSet||1,s=item.sets||1; return s>1?`${l}周×${s}セット=${l*s}周`:`${l}周`; }
+  if (item.minutesPerSet&&item.sets&&item.sets>1) return `${item.minutesPerSet}分×${item.sets}セット=${item.duration}分`;
+  return `${item.duration}分`;
+}
+
+// ─── Small Components ─────────────────────────────────────────────────────────
+function Badge({cat}) {
+  const bg=CAT_COLOR[cat]||"#6b7280";
+  return <span style={{background:bg+"22",color:bg,border:`1px solid ${bg}55`,borderRadius:99,padding:"2px 9px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{cat}</span>;
+}
+function TargetBadge({grade,gender}) {
+  const label=formatTarget(grade,gender);
+  if(label==="全体") return null;
+  return <span style={{fontSize:11,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"1px 8px",fontWeight:700,whiteSpace:"nowrap"}}>👥{label}</span>;
+}
+function SetTag({label,idx}) {
+  const c=SET_LABEL_COLOR[label]||"#6b7280";
+  return <span style={{fontSize:11,background:c+"18",border:`1px solid ${c}44`,borderRadius:99,padding:"1px 8px",color:c,fontWeight:700,display:"inline-flex",alignItems:"center",gap:3}}><span style={{color:"#9ca3af",fontWeight:400}}>{idx+1}.</span>{label}</span>;
+}
+function SetLabels({drill}) {
+  const labels=(drill.setLabels||[]).filter(l=>l&&SET_LABEL_COLOR[l]);
+  if(!labels.length) return null;
+  return <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>{(drill.setLabels||[]).map((lb,i)=>lb&&SET_LABEL_COLOR[lb]?<SetTag key={i} label={lb} idx={i}/>:null)}</div>;
+}
+function TimeLabel({drill}) {
+  if(drill.timeUnit==="lap"){const l=drill.lapsPerSet||1,s=drill.sets||1;return s>1?<span style={{fontSize:12,color:"#6b7280"}}>{l}周×{s}セット＝<b>{l*s}周</b></span>:<span style={{fontSize:12,color:"#6b7280"}}>{l}周</span>;}
+  if(drill.minutesPerSet&&drill.sets&&drill.sets>1)return <span style={{fontSize:12,color:"#6b7280"}}>{drill.minutesPerSet}分×{drill.sets}セット＝<b>{drill.duration}分</b></span>;
+  return <span style={{fontSize:12,color:"#6b7280"}}>{drill.duration}分</span>;
+}
+function DrillCard({item}) {
+  return (
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{item.name}</div>
+      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}><Badge cat={item.category}/><TimeLabel drill={item}/><TargetBadge grade={item.grade} gender={item.gender}/></div>
+      <SetLabels drill={item}/>
+    </div>
+  );
+}
+function Btn({children,onClick,variant="primary",small,disabled,style:s}) {
+  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:small?12:14,padding:small?"5px 12px":"10px 20px",transition:"all .15s",opacity:disabled?.45:1,...s};
+  const vs={primary:{background:"#16a34a",color:"#fff",boxShadow:"0 2px 8px #16a34a44"},danger:{background:"#ef444422",color:"#ef4444",border:"1px solid #ef444455"},ghost:{background:"#f3f4f6",color:"#374151"}};
+  return <button onClick={onClick} disabled={disabled} style={{...base,...vs[variant]}}>{children}</button>;
+}
+function Modal({title,onClose,children}) {
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:100,background:"#00000066",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:"100%",maxWidth:480,boxShadow:"0 20px 60px #00000033",maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          <span style={{fontWeight:800,fontSize:17}}>{title}</span>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#6b7280"}}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+function FInput({label,value,onChange,placeholder,type="text",min,max}) {
+  return (
+    <div style={{marginBottom:14}}>
+      {label&&<div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>{label}</div>}
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} min={min} max={max}
+        style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+    </div>
+  );
+}
+function FSelect({label,value,onChange,options}) {
+  return (
+    <div style={{marginBottom:14}}>
+      {label&&<div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>{label}</div>}
+      <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:14,background:"#fff",fontFamily:"inherit"}}>
+        {options.map(o=><option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+function TargetSelector({grade,gender,onGradeChange,onGenderChange}) {
+  return (
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>対象</div>
+      <div style={{background:"#f9fafb",borderRadius:8,padding:"10px 12px",display:"flex",flexDirection:"column",gap:10}}>
+        <div>
+          <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,marginBottom:6}}>学年</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {GRADE_OPTS.map(opt=>{const active=(grade||"")===opt.value;return <button key={opt.value} onClick={()=>onGradeChange(opt.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?"#0369a1":"#e5e7eb"}`,background:active?"#e0f2fe":"#fff",color:active?"#0369a1":"#6b7280",cursor:"pointer"}}>{opt.label}</button>;})}
+          </div>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,marginBottom:6}}>性別</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {GENDER_OPTS.map(opt=>{const active=(gender||"")===opt.value;const col=opt.value==="男子"?"#0ea5e9":opt.value==="女子"?"#ec4899":opt.value==="混合"?"#22c55e":"#6b7280";return <button key={opt.value} onClick={()=>onGenderChange(opt.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?col:"#e5e7eb"}`,background:active?col+"22":"#fff",color:active?col:"#6b7280",cursor:"pointer"}}>{opt.label}</button>;})}
+          </div>
+        </div>
+        <div style={{fontSize:12,color:"#374151"}}>対象：<b style={{color:"#0369a1"}}>{formatTarget(grade,gender)}</b></div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ────────────────────────────────────────────────────────────────
+function App() {
+  const [tab,setTab]           = useState("builder");
+  const [drills,setDrills]     = useState(()=>lsGet("st_drills",DEFAULT_DRILLS));
+  const [menus,setMenus]       = useState(()=>lsGet("st_menus",[]));
+  const [menuName,setMenuName] = useState("今日の練習");
+  const [selected,setSelected] = useState([]);
+  const [filterCat,setFilterCat] = useState("すべて");
+  const [filterQ,setFilterQ]     = useState("");
+  const [drillModal,setDrillModal] = useState(null);
+  const [form,setForm]             = useState(EMPTY_FORM);
+
+  useEffect(()=>lsSet("st_drills",drills),[drills]);
+  useEffect(()=>lsSet("st_menus",menus),[menus]);
+
+  const newUid = () => Date.now()+Math.random();
+
+  // ── Drill CRUD ──
+  const openNew  = () => { setForm({...EMPTY_FORM}); setDrillModal("new"); };
+  const openEdit = d => { const sts=d.sets||1; setForm({...d,minutesPerSet:d.minutesPerSet||d.duration||5,sets:sts,setLabels:autoSetLabels(sts),grade:d.grade||"",gender:d.gender||"",timeUnit:d.timeUnit||"min",lapsPerSet:d.lapsPerSet||1}); setDrillModal(d); };
+  const saveDrill = () => {
+    if(!form.name.trim()) return;
+    const mps=Math.max(1,Number(form.minutesPerSet)||1), sts=Math.max(1,Number(form.sets)||1);
+    const setLabels=Array.from({length:sts},(_,i)=>form.setLabels&&form.setLabels[i]||"");
+    const isLap=form.timeUnit==="lap";
+    const computed={...form,minutesPerSet:mps,sets:sts,setLabels,lapsPerSet:Number(form.lapsPerSet)||1,duration:isLap?0:mps*sts};
+    if(drillModal==="new"){ setDrills(p=>[...p,{...computed,id:"d"+Date.now()}]); }
+    else { const upd={...drillModal,...computed}; setDrills(p=>p.map(d=>d.id===upd.id?upd:d)); setSelected(p=>p.map(s=>s.id===upd.id?{...s,...upd}:s)); }
+    setDrillModal(null);
+  };
+  const deleteDrill = id => { if(!confirm("このドリルを削除しますか？"))return; setDrills(p=>p.filter(d=>d.id!==id)); setSelected(p=>p.filter(s=>s.id!==id)); };
+
+  // ── Builder ──
+  const addToMenu    = drill => setSelected(p=>[...p,{...drill,uid:newUid(),groupId:null}]);
+  const addRest      = mins  => setSelected(p=>[...p,{uid:newUid(),id:null,name:"休憩",category:"休憩",duration:mins,minutesPerSet:mins,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"",groupId:null}]);
+  const removeFromMenu = uid => setSelected(p=>p.filter(s=>s.uid!==uid));
+  const addToGroup   = drill => {
+    setSelected(p=>{
+      if(!p.length) return [...p,{...drill,uid:newUid(),groupId:null}];
+      const last=p[p.length-1];
+      const gid=last.groupId||("g"+Date.now());
+      const updated=last.groupId?p:[...p.slice(0,-1),{...last,groupId:gid}];
+      return [...updated,{...drill,uid:newUid(),groupId:gid}];
+    });
+  };
+  const detachFromGroup = uid => setSelected(p=>p.map(s=>s.uid===uid?{...s,groupId:null}:s));
+  const totalMin = selected.filter(s=>s.timeUnit!=="lap").reduce((s,d)=>s+(d.duration||0),0);
+
+  // ── Save / Load / Delete Menu ──
+  const saveMenu = () => {
+    if(!selected.length) return;
+    const m={id:"m"+Date.now(),name:menuName,drills:selected,total:totalMin,createdAt:new Date().toLocaleDateString("ja-JP")};
+    setMenus(p=>[m,...p]); alert(`「${menuName}」を保存しました！`);
+  };
+  const loadSavedMenu = m => { setSelected(m.drills.map(d=>({...d,uid:newUid()}))); setMenuName(m.name); setTab("builder"); };
+  const deleteMenu = id => { if(confirm("このメニューを削除しますか？")) setMenus(p=>p.filter(m=>m.id!==id)); };
+
+  // ── Print ──
+  const printMenu = () => {
+    const catCol={"ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6","ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e","フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c"};
+    const lblCol={"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"};
+    const rows=groupRows(selected);
+
+    // 行数に応じてフォントサイズを動的に調整
+    const rowCount=rows.length;
+    const fs = rowCount<=8?11:rowCount<=12?10:rowCount<=16?9:8;
+    const pad = rowCount<=8?"6px 8px":rowCount<=12?"4px 7px":"3px 6px";
+
+    const renderCell=item=>{
+      const c=catCol[item.category]||"#6b7280";
+      const tgt=formatTarget(item.grade,item.gender);
+      const tgtH=tgt!=="全体"?`<span style="display:inline-block;padding:1px 6px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc">👥${tgt}</span>`:"";
+      const lblH=(item.setLabels||[]).filter(l=>l).map((l,si)=>{const lc=lblCol[l]||"#6b7280";return `<span style="display:inline-block;margin:1px 2px;padding:0 5px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:${lc}22;color:${lc};border:1px solid ${lc}55">${si+1}.${l}</span>`;}).join("");
+      const isRest=item.category==="休憩";
+      return `<div style="padding:${pad}">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:2px">
+          <span style="display:inline-block;padding:0 6px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:${c}22;color:${c};border:1px solid ${c}44">${item.category}</span>
+          ${tgtH}
+        </div>
+        <div style="font-weight:${isRest?600:700};font-size:${fs+1}px;color:${isRest?"#78716c":"#111"};margin-bottom:1px">${isRest?"☕ ":""}${item.name}</div>
+        ${lblH?`<div style="margin-bottom:1px">${lblH}</div>`:""}
+        <div style="font-size:${fs-1}px;color:#6b7280">${timeLabelStr(item)}</div>
+        ${item.description?`<div style="font-size:${fs-2}px;color:#9ca3af;margin-top:1px">${item.description}</div>`:""}
+      </div>`;
+    };
+
+    let rn=0;
+    const trows=rows.map(row=>{
+      rn++;
+      const bg=rn%2===0?"#f8f8f8":"#fff";
+      if(row.length===1){
+        const item=row[0];
+        const isRest=item.category==="休憩";
+        return `<tr style="background:${isRest?"#f5f5f4":bg}">
+          <td class="num">${isRest?"—":rn}</td>
+          <td>${renderCell(item)}</td>
+        </tr>`;
+      }
+      // 枝分かれ：各列を完全均等幅に（table-layoutを fixed で制御）
+      const n=row.length;
+      // 番号列28px固定、残りをn等分
+      const cols=row.map((item,ci)=>`<td style="vertical-align:top;border-right:${ci<n-1?"1px solid #d1fae5":"none"}">${renderCell(item)}</td>`).join("");
+      return `<tr style="background:${bg};border-top:2px solid #84cc16">
+        <td class="num" style="vertical-align:middle;border-right:1px solid #e5e7eb">
+          <div>${rn}</div><div style="font-size:7px;color:#84cc16;font-weight:700;margin-top:1px">分割</div>
+        </td>
+        <td colspan="1" style="padding:0">
+          <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+            <colgroup>${Array(n).fill(`<col style="width:${(100/n).toFixed(2)}%">`).join("")}</colgroup>
+            <tr>${cols}</tr>
+          </table>
+        </td>
+      </tr>`;
+    }).join("");
+
+    const html=`<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>${menuName}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%}
+  body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;background:#fff;font-size:${fs}px}
+  .wrap{padding:8mm 8mm 6mm;max-width:100%}
+  h1{font-size:15px;font-weight:900;color:#15803d;margin-bottom:2px}
+  .meta{font-size:10px;color:#6b7280;margin-bottom:8px}
+  table.main{width:100%;border-collapse:collapse;border:1px solid #d1d5db;table-layout:fixed}
+  table.main th{background:#15803d;color:#fff;padding:5px 8px;font-size:${fs}px;font-weight:700;text-align:left}
+  table.main th.num{width:28px;text-align:center}
+  table.main td{vertical-align:top;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}
+  table.main td.num{width:28px;padding:4px 2px;text-align:center;color:#6b7280;font-weight:700;font-size:${fs}px;border-right:1px solid #e5e7eb;vertical-align:middle}
+  table.main tr:last-child td{border-bottom:none}
+  .total{margin-top:5px;text-align:right;font-size:11px;color:#374151}
+  .total b{color:#15803d}
+  @media print{
+    html,body{width:100%;height:100%}
+    .wrap{padding:5mm 6mm 4mm}
+    @page{size:A4 portrait;margin:0}
+  }
+</style>
+</head>
+<body><div class="wrap">
+  <h1>🎾 ${menuName}</h1>
+  <div class="meta">${new Date().toLocaleDateString("ja-JP")} ／ 合計${totalMin}分</div>
+  <table class="main">
+    <thead><tr><th class="num">#</th><th>練習内容</th></tr></thead>
+    <tbody>${trows}</tbody>
+  </table>
+  <div class="total">合計時間：<b>${totalMin}分</b></div>
+</div>
+<script>window.onload=()=>window.print();<\/script>
+</body></html>`;
+
+    const w=window.open("","_blank"); if(w){w.document.write(html);w.document.close();}
+  };
+
+  const visibleDrills=drills.filter(d=>(filterCat==="すべて"||d.category===filterCat)&&(d.name.includes(filterQ)||(d.description||"").includes(filterQ)));
+  const rows=groupRows(selected);
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f0fdf4",fontFamily:"inherit"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#15803d,#166534)",padding:"16px 16px 0",color:"#fff"}}>
+        <div style={{maxWidth:700,margin:"0 auto"}}>
+          <div style={{fontSize:11,letterSpacing:3,opacity:.7,marginBottom:2}}>🎾 SOFT TENNIS</div>
+          <div style={{fontWeight:900,fontSize:20,marginBottom:14}}>練習メニュービルダー</div>
+          <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
+            {[["builder","📋 作成"],["drills","🗂 ドリル"],["rest","☕ 休憩"],["saved","💾 保存済み"]].map(([key,label])=>(
+              <button key={key} onClick={()=>setTab(key)} style={{padding:"8px 12px",borderRadius:"8px 8px 0 0",border:"none",background:tab===key?"#f0fdf4":"transparent",color:tab===key?"#15803d":"#ffffffaa",fontWeight:tab===key?800:500,fontSize:12,cursor:"pointer"}}>{label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:700,margin:"0 auto",padding:"20px 16px 80px"}}>
+
+        {/* ══ BUILDER ══ */}
+        {tab==="builder"&&(
+          <div>
+            <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
+              <input value={menuName} onChange={e=>setMenuName(e.target.value)} style={{flex:1,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:15,fontWeight:700,fontFamily:"inherit",outline:"none"}}/>
+              <Btn onClick={saveMenu} disabled={!selected.length}>保存</Btn>
+            </div>
+
+            {/* 今日のメニュー */}
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",marginBottom:16,overflow:"hidden"}}>
+              <div style={{background:"#15803d",color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontWeight:800}}>今日のメニュー</span>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:13,opacity:.85}}>合計 <b>{totalMin}</b> 分</span>
+                  {selected.length>0&&<button onClick={printMenu} style={{background:"#fff",border:"none",color:"#15803d",borderRadius:7,padding:"4px 12px",fontWeight:700,fontSize:12,cursor:"pointer"}}>🖨️ 印刷/PDF</button>}
+                </div>
+              </div>
+              {selected.length===0?(
+                <div style={{padding:"32px 16px",textAlign:"center",color:"#9ca3af",fontSize:14}}>下のドリル一覧から追加してください</div>
+              ):(
+                <div>
+                  {rows.map((row,ri)=>{
+                    const isGroup=row.length>1;
+                    return (
+                      <div key={ri} style={{borderBottom:"1px solid #f3f4f6"}}>
+                        {isGroup&&<div style={{background:"#f0fdf4",borderBottom:"1px dashed #bbf7d0",padding:"3px 12px",fontSize:11,color:"#15803d",fontWeight:700}}>⑂ 同時進行（{row.length}グループ）</div>}
+                        <div style={{display:"flex"}}>
+                          <div style={{width:32,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",borderRight:"1px solid #f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700}}>{ri+1}</div>
+                          <div style={{flex:1,display:"flex",minWidth:0}}>
+                            {row.map((item,ci)=>(
+                              <div key={item.uid} style={{flex:1,minWidth:0,borderLeft:ci>0?"1px dashed #d1fae5":undefined,padding:"10px 12px"}}>
+                                <DrillCard item={item}/>
+                                <div style={{display:"flex",gap:4,marginTop:6}}>
+                                  {isGroup&&<button onClick={()=>detachFromGroup(item.uid)} style={{fontSize:10,padding:"2px 7px",borderRadius:6,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#6b7280",cursor:"pointer"}}>切り離す</button>}
+                                  <button onClick={()=>removeFromMenu(item.uid)} style={{fontSize:10,padding:"2px 7px",borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer"}}>削除</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{padding:"10px 16px",borderTop:"1px solid #f3f4f6",display:"flex",justifyContent:"flex-end"}}>
+                    <Btn small variant="ghost" onClick={()=>setSelected([])}>すべてクリア</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ドリルピッカー */}
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
+              <div style={{padding:"12px 16px 0",borderBottom:"1px solid #f3f4f6"}}>
+                <div style={{fontWeight:800,marginBottom:10}}>ドリルを追加</div>
+                <input value={filterQ} onChange={e=>setFilterQ(e.target.value)} placeholder="🔍 ドリル名で検索" style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"7px 12px",fontSize:13,marginBottom:10,fontFamily:"inherit",outline:"none"}}/>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingBottom:10}}>
+                  {["すべて",...CATEGORIES].map(c=>(
+                    <button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{maxHeight:360,overflowY:"auto"}}>
+                {visibleDrills.length===0?(<div style={{padding:24,textAlign:"center",color:"#9ca3af",fontSize:14}}>該当なし</div>)
+                :visibleDrills.map(d=>(
+                  <div key={d.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"10px 14px",borderBottom:"1px solid #f9fafb"}}>
+                    <DrillCard item={d}/>
+                    <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                      <button onClick={()=>addToMenu(d)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}} title="単独で追加">+</button>
+                      {selected.length>0&&<button onClick={()=>addToGroup(d)} style={{background:"#fff7ed",border:"1px solid #fed7aa",color:"#c2410c",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="直前の行と同時進行">⑂</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{padding:"8px 14px",background:"#f9fafb",borderTop:"1px solid #f3f4f6",fontSize:11,color:"#6b7280",display:"flex",gap:16}}>
+                <span><b style={{color:"#15803d"}}>＋</b> 単独で追加</span>
+                <span><b style={{color:"#c2410c"}}>⑂</b> 直前の行と同時進行（枝分かれ）</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ DRILLS ══ */}
+        {tab==="drills"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <span style={{fontWeight:800,fontSize:16}}>ドリル一覧（{drills.length}件）</span>
+              <Btn small onClick={openNew}>＋ 新規登録</Btn>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+              {["すべて",...CATEGORIES].map(c=>(
+                <button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>
+              ))}
+            </div>
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
+              {visibleDrills.length===0?(<div style={{padding:32,textAlign:"center",color:"#9ca3af"}}>ドリルがありません</div>)
+              :visibleDrills.map((d,i)=>(
+                <div key={d.id} style={{padding:"12px 16px",borderBottom:i<visibleDrills.length-1?"1px solid #f3f4f6":"none"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                    <DrillCard item={d}/>
+                    <div style={{display:"flex",gap:6,flexShrink:0}}>
+                      <Btn small variant="ghost" onClick={()=>openEdit(d)}>編集</Btn>
+                      <Btn small variant="danger" onClick={()=>deleteDrill(d.id)}>削除</Btn>
+                    </div>
+                  </div>
+                  {d.description&&<div style={{fontSize:13,color:"#6b7280",lineHeight:1.5,marginTop:4}}>{d.description}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══ REST ══ */}
+        {tab==="rest"&&(
+          <div>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>休憩を追加</div>
+            <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>メニューに挿入したい休憩時間を選んでください</div>
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden",marginBottom:16}}>
+              {[5,10,15,20].map((mins,i,arr)=>(
+                <div key={mins} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid #f3f4f6":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:22}}>☕</span>
+                    <div><div style={{fontWeight:700,fontSize:15}}>休憩</div><div style={{fontSize:13,color:"#6b7280"}}>{mins}分</div></div>
+                  </div>
+                  <button onClick={()=>{addRest(mins);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"7px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",padding:16}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#6b7280",marginBottom:10}}>カスタム時間</div>
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <input type="number" id="cr" defaultValue={3} min={1} max={60} style={{width:80,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"inherit"}}/>
+                <span style={{color:"#6b7280",fontWeight:600}}>分</span>
+                <button onClick={()=>{const v=Math.max(1,Math.min(60,Number(document.getElementById("cr").value)||1));addRest(v);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"9px 20px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ SAVED ══ */}
+        {tab==="saved"&&(
+          <div>
+            <div style={{fontWeight:800,fontSize:16,marginBottom:14}}>保存済みメニュー（{menus.length}件）</div>
+            {menus.length===0?(<div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>まだ保存されたメニューはありません</div>)
+            :menus.map(m=>(
+              <div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>{m.name}</div>
+                    <div style={{fontSize:12,color:"#9ca3af",marginBottom:8}}>{m.createdAt} ／ {m.drills.length}ドリル ／ 合計{m.total}分</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{m.drills.map((d,i)=><span key={i} style={{fontSize:11,background:"#f3f4f6",borderRadius:6,padding:"2px 8px",color:"#374151"}}>{d.name}</span>)}</div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                    <Btn small onClick={()=>loadSavedMenu(m)}>読み込む</Btn>
+                    <Btn small variant="danger" onClick={()=>deleteMenu(m.id)}>削除</Btn>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ══ MODAL ══ */}
+      {drillModal!==null&&(
+        <Modal title={drillModal==="new"?"ドリルを新規登録":"ドリルを編集"} onClose={()=>setDrillModal(null)}>
+          <FInput label="ドリル名 *" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="例: クロスラリー"/>
+          <FSelect label="カテゴリ" value={form.category} onChange={v=>setForm(p=>({...p,category:v}))} options={CATEGORIES}/>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>時間設定</div>
+            {form.category==="外周"&&(
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                {[["min","分"],["lap","周"]].map(([val,label])=>{const active=(form.timeUnit||"min")===val;return <button key={val} onClick={()=>setForm(p=>({...p,timeUnit:val}))} style={{padding:"5px 18px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?"#84cc16":"#e5e7eb"}`,background:active?"#f7fee7":"#fff",color:active?"#4d7c0f":"#6b7280",cursor:"pointer"}}>{label}で入力</button>;})}
+              </div>
+            )}
+            {form.category==="外周"&&form.timeUnit==="lap"?(
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <input type="number" value={form.lapsPerSet||1} onChange={e=>setForm(p=>({...p,lapsPerSet:e.target.value}))} min={1} max={100} style={{width:70,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:14,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
+                <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>周 ×</span>
+                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return <button key={n} onClick={()=>setForm(p=>({...p,sets:n,setLabels:autoSetLabels(n)}))} style={{width:36,height:38,border:`2px solid ${a?"#84cc16":"#e5e7eb"}`,borderRadius:8,background:a?"#f7fee7":"#fff",color:a?"#4d7c0f":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
+                <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>セット</span>
+                <span style={{background:"#f7fee7",color:"#4d7c0f",borderRadius:8,padding:"6px 12px",fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>＝{(Number(form.lapsPerSet)||1)*form.sets}周</span>
+              </div>
+            ):(
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <input type="number" value={form.minutesPerSet} onChange={e=>setForm(p=>({...p,minutesPerSet:e.target.value}))} min={1} max={120} style={{width:70,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:14,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
+                <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>分 ×</span>
+                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return <button key={n} onClick={()=>setForm(p=>({...p,sets:n,setLabels:autoSetLabels(n)}))} style={{width:36,height:38,border:`2px solid ${a?"#15803d":"#e5e7eb"}`,borderRadius:8,background:a?"#dcfce7":"#fff",color:a?"#15803d":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
+                <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>セット</span>
+                <span style={{background:"#dcfce7",color:"#15803d",borderRadius:8,padding:"6px 12px",fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>＝{(Number(form.minutesPerSet)||0)*form.sets}分</span>
+              </div>
+            )}
+            {form.sets>=2&&(
+              <div style={{marginTop:12,background:"#f9fafb",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:"#9ca3af"}}>各セットの内容</span>
+                  <span style={{fontSize:11,color:"#15803d",fontWeight:700}}>✓ 自動設定</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {(form.setLabels||[]).map((val,i)=>{const c=SET_LABEL_COLOR[val]||"#6b7280";return(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,fontWeight:700,color:"#fff",background:"#6b7280",borderRadius:99,width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+                      <span style={{padding:"4px 16px",borderRadius:99,fontSize:13,fontWeight:700,background:c+"22",color:c,border:`2px solid ${c}55`}}>{val}</span>
+                    </div>
+                  );})}
+                </div>
+              </div>
+            )}
+          </div>
+          <TargetSelector grade={form.grade||""} gender={form.gender||""} onGradeChange={v=>setForm(p=>({...p,grade:v}))} onGenderChange={v=>setForm(p=>({...p,gender:v}))}/>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>説明（任意）</div>
+            <textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="練習内容や注意点など" style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,minHeight:72,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <Btn variant="ghost" onClick={()=>setDrillModal(null)}>キャンセル</Btn>
+            <Btn onClick={saveDrill} disabled={!form.name.trim()}>保存する</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

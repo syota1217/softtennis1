@@ -1,0 +1,24 @@
+{
+  "name": "ソフトテニス 練習メニュービルダー",
+  "short_name": "テニスメニュー",
+  "description": "中学生ソフトテニス部の練習メニューを作成・管理するアプリ",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f0fdf4",
+  "theme_color": "#15803d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
