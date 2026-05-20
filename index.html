@@ -19,37 +19,30 @@
 <body>
 <div id="root"></div>
 
-<!-- Firebase SDK (UMD/compat版 - トラッキング防止対策) -->
+<!-- Firebase SDK (UMD/compat版) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDit79sOjOP9CTdIv79cwgA36BivDiu6zY",
-  authDomain: "softtennis-menu.firebaseapp.com",
-  projectId: "softtennis-menu",
-  storageBucket: "softtennis-menu.firebasestorage.app",
-  messagingSenderId: "748877881751",
-  appId: "1:748877881751:web:fdceb5645bcf828904e4d2"
-};
-firebase.initializeApp(firebaseConfig);
-const _db = firebase.firestore();
-
-// Firestore アクセス関数をグローバルに公開
-window._db = _db;
-window._dbReady = true;
-
-// compat版ラッパー（既存コードと互換）
-window._fs = {
-  collection: (db, name) => db.collection(name),
-  doc: (col, id) => typeof col.doc === "function" ? col.doc(id) : _db.collection(col).doc(id),
-  onSnapshot: (ref, cb) => ref.onSnapshot(snap => {
-    cb({ docs: snap.docs.map(d => ({ data: () => d.data(), id: d.id })) });
-  }),
-  setDoc: (ref, data) => ref.set(data),
-  deleteDoc: (ref) => ref.delete(),
-  getDocs: (ref) => ref.get(),
-};
-window.dispatchEvent(new Event("dbReady"));
+function initFirebase() {
+  if (typeof firebase === "undefined") {
+    setTimeout(initFirebase, 100);
+    return;
+  }
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyDit79sOjOP9CTdIv79cwgA36BivDiu6zY",
+      authDomain: "softtennis-menu.firebaseapp.com",
+      projectId: "softtennis-menu",
+      storageBucket: "softtennis-menu.firebasestorage.app",
+      messagingSenderId: "748877881751",
+      appId: "1:748877881751:web:fdceb5645bcf828904e4d2"
+    });
+  }
+  window._db = firebase.firestore();
+  window._dbReady = true;
+  window.dispatchEvent(new Event("dbReady"));
+}
+initFirebase();
 </script>
 
 <!-- React -->
@@ -564,6 +557,8 @@ function AdminScreen({ onLogout }) {
   const [confirm,  setConfirm]  = useState(null); // { school, mode } mode: "account" | "full"
   const [deleting, setDeleting] = useState(false);
   const [msg,      setMsg]      = useState("");
+  const [showPass, setShowPass] = useState({}); // schoolName -> bool
+  const togglePass = (name) => setShowPass(p=>({...p,[name]:!p[name]}));
 
   // アカウントのみ削除（Firestoreは残す）
   const deleteAccountOnly = (schoolName) => {
@@ -626,8 +621,16 @@ function AdminScreen({ onLogout }) {
         ):accounts.map(a=>(
           <div key={a.schoolName} style={{padding:"14px",background:"#f9fafb",borderRadius:10,marginBottom:10,border:"1px solid #e5e7eb"}}>
             <div style={{marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:15}}>{a.schoolName}</div>
-              <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>パスコード：{"●".repeat(a.passcode.length)}</div>
+              <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{a.schoolName}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#374151"}}>
+                <span style={{color:"#6b7280"}}>パスコード：</span>
+                <span style={{fontWeight:700,letterSpacing:1,fontFamily:"monospace",fontSize:13,color:"#111"}}>
+                  {showPass[a.schoolName] ? a.passcode : "●".repeat(a.passcode.length)}
+                </span>
+                <button onClick={()=>togglePass(a.schoolName)} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#6b7280",borderRadius:6,padding:"2px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                  {showPass[a.schoolName] ? "隠す" : "表示"}
+                </button>
+              </div>
             </div>
 
             {/* 確認ダイアログ */}
