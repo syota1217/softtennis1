@@ -183,6 +183,278 @@ function TargetSelector({grade,gender,onGradeChange,onGenderChange}){return(
   </div>
 );}
 
+// ─── Timer Tab ───────────────────────────────────────────────────────────────
+function TimerTab({ menus }) {
+  const [phase, setPhase]       = useState("select"); // select | ready | running | done
+  const [selectedMenu, setSelectedMenu] = useState(null);
+  const [drillList, setDrillList]       = useState([]); // 実行するドリルの平坦化リスト
+  const [currentIdx, setCurrentIdx]     = useState(0);
+  const [secondsLeft, setSecondsLeft]   = useState(0);
+  const [isPaused, setIsPaused]         = useState(false);
+  const timerRef = useRef(null);
+  const beepCtx  = useRef(null);
+
+  // メニューのドリルを平坦化（グループも含めて1つずつ）
+  const flattenDrills = (drills) => {
+    const result = [];
+    const rows = groupRows(drills);
+    rows.forEach(row => {
+      row.forEach(item => {
+        if (item.timeUnit === "lap") {
+          result.push({ ...item, displayTime: `${(item.lapsPerSet||1)*( item.sets||1)}周`, isLap: true, durationSec: 0 });
+        } else {
+          result.push({ ...item, displayTime: `${item.duration}分`, isLap: false, durationSec: (item.duration||0)*60 });
+        }
+      });
+    });
+    return result;
+  };
+
+  const startMenu = (menu) => {
+    const list = flattenDrills(menu.drills);
+    setSelectedMenu(menu);
+    setDrillList(list);
+    setCurrentIdx(0);
+    setPhase("ready");
+  };
+
+  const startTimer = () => {
+    const drill = drillList[currentIdx];
+    if (drill.isLap) {
+      setPhase("running");
+      setSecondsLeft(0);
+    } else {
+      setSecondsLeft(drill.durationSec);
+      setIsPaused(false);
+      setPhase("running");
+    }
+  };
+
+  // カウントダウン
+  useEffect(() => {
+    if (phase !== "running" || isPaused) return;
+    const drill = drillList[currentIdx];
+    if (drill?.isLap) return; // 周は手動
+    if (secondsLeft <= 0) {
+      playBeep(880, 0.3);
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) {
+          clearInterval(timerRef.current);
+          playBeep(880, 0.3);
+          return 0;
+        }
+        if (s === 11) playBeep(440, 0.1); // 残り10秒ビープ
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [phase, isPaused, currentIdx]);
+
+  const playBeep = (freq, dur) => {
+    try {
+      if (!beepCtx.current) beepCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = beepCtx.current;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      o.start(); o.stop(ctx.currentTime + dur);
+    } catch(e) {}
+  };
+
+  const goNext = () => {
+    clearInterval(timerRef.current);
+    if (currentIdx >= drillList.length - 1) { setPhase("done"); return; }
+    const next = currentIdx + 1;
+    setCurrentIdx(next);
+    const drill = drillList[next];
+    setSecondsLeft(drill.isLap ? 0 : drill.durationSec);
+    setIsPaused(false);
+    playBeep(660, 0.2);
+  };
+
+  const goPrev = () => {
+    clearInterval(timerRef.current);
+    if (currentIdx <= 0) return;
+    const prev = currentIdx - 1;
+    setCurrentIdx(prev);
+    const drill = drillList[prev];
+    setSecondsLeft(drill.isLap ? 0 : drill.durationSec);
+    setIsPaused(false);
+  };
+
+  const togglePause = () => {
+    clearInterval(timerRef.current);
+    setIsPaused(p => !p);
+  };
+
+  const reset = () => {
+    clearInterval(timerRef.current);
+    setPhase("select");
+    setSelectedMenu(null);
+    setDrillList([]);
+    setCurrentIdx(0);
+    setIsPaused(false);
+  };
+
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const progress = drillList.length ? ((currentIdx) / drillList.length) * 100 : 0;
+  const drill = drillList[currentIdx];
+  const catCol = {"ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6","ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e","フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c"};
+  const accentCol = drill ? (catCol[drill.category] || "#15803d") : "#15803d";
+
+  // ── メニュー選択画面 ──
+  if (phase === "select") return (
+    <div>
+      <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>練習メニューを選択</div>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>実行したい保存済みメニューを選んでください</div>
+      {menus.length === 0 ? (
+        <div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>
+          保存済みメニューがありません。<br/>先にメニューを作成・保存してください。
+        </div>
+      ) : menus.map(m => (
+        <div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:15,marginBottom:3}}>{m.name}</div>
+              <div style={{fontSize:12,color:"#9ca3af"}}>{m.createdAt} ／ {m.drills.length}ドリル ／ 合計{m.total}分</div>
+            </div>
+            <button onClick={()=>startMenu(m)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"10px 18px",fontWeight:800,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>▶ 開始</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ── 準備画面 ──
+  if (phase === "ready") return (
+    <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>練習メニュー</div>
+      <div style={{fontWeight:900,fontSize:20,color:"#15803d",marginBottom:20}}>{selectedMenu.name}</div>
+      <div style={{background:"#f9fafb",borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
+        {drillList.map((d,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:i<drillList.length-1?"1px solid #f3f4f6":"none"}}>
+            <span style={{fontSize:12,color:"#9ca3af",width:20,textAlign:"right",flexShrink:0}}>{i+1}</span>
+            <span style={{fontSize:13,fontWeight:600,flex:1}}>{d.name}</span>
+            <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap"}}>{d.displayTime}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+        <button onClick={reset} style={{background:"#f3f4f6",border:"none",color:"#374151",borderRadius:10,padding:"12px 24px",fontWeight:700,fontSize:15,cursor:"pointer"}}>← 戻る</button>
+        <button onClick={startTimer} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>▶ スタート</button>
+      </div>
+    </div>
+  );
+
+  // ── 完了画面 ──
+  if (phase === "done") return (
+    <div style={{background:"#fff",borderRadius:16,padding:32,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>🎾</div>
+      <div style={{fontWeight:900,fontSize:22,color:"#15803d",marginBottom:8}}>練習完了！</div>
+      <div style={{fontSize:14,color:"#6b7280",marginBottom:24}}>{selectedMenu.name}  お疲れ様でした</div>
+      <button onClick={reset} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer"}}>← メニューに戻る</button>
+    </div>
+  );
+
+  // ── 実行画面 ──
+  const timeRatio = drill.durationSec > 0 ? secondsLeft / drill.durationSec : 0;
+  const isLastTen = !drill.isLap && secondsLeft <= 10 && secondsLeft > 0;
+  const isDone    = !drill.isLap && secondsLeft === 0;
+  const setLabels = (drill.setLabels||[]).filter(l=>l);
+
+  return (
+    <div>
+      {/* 進捗バー */}
+      <div style={{background:"#fff",borderRadius:12,padding:"12px 16px",marginBottom:12,boxShadow:"0 1px 6px #0001"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#6b7280"}}>{selectedMenu.name}</span>
+          <span style={{fontSize:12,color:"#6b7280"}}>{currentIdx+1} / {drillList.length}</span>
+        </div>
+        <div style={{background:"#e5e7eb",borderRadius:99,height:8,overflow:"hidden"}}>
+          <div style={{background:"#15803d",height:"100%",width:`${progress}%`,borderRadius:99,transition:"width .4s"}}/>
+        </div>
+      </div>
+
+      {/* メインカード */}
+      <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",marginBottom:12}}>
+        {/* カテゴリ */}
+        <div style={{textAlign:"center",marginBottom:8}}>
+          <span style={{display:"inline-block",padding:"3px 14px",borderRadius:99,fontSize:12,fontWeight:700,background:accentCol+"22",color:accentCol,border:`1px solid ${accentCol}44`}}>{drill.category}</span>
+        </div>
+
+        {/* ドリル名 */}
+        <div style={{textAlign:"center",fontWeight:900,fontSize:22,color:"#111",marginBottom:8,lineHeight:1.3}}>{drill.name}</div>
+
+        {/* 対象 */}
+        {formatTarget(drill.grade,drill.gender)!=="全体"&&(
+          <div style={{textAlign:"center",marginBottom:8}}>
+            <span style={{fontSize:12,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"2px 10px",fontWeight:700}}>👥{formatTarget(drill.grade,drill.gender)}</span>
+          </div>
+        )}
+
+        {/* セットラベル */}
+        {setLabels.length>0&&(
+          <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginBottom:12}}>
+            {setLabels.map((l,i)=>{const c={"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"}[l]||"#6b7280";return<span key={i} style={{fontSize:12,background:c+"18",border:`1px solid ${c}44`,borderRadius:99,padding:"2px 10px",color:c,fontWeight:700}}>{i+1}.{l}</span>;})}
+          </div>
+        )}
+
+        {/* タイマー表示 */}
+        {drill.isLap ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:48,marginBottom:8}}>🏃</div>
+            <div style={{fontWeight:900,fontSize:28,color:accentCol,marginBottom:4}}>{drill.displayTime}</div>
+            <div style={{fontSize:13,color:"#6b7280"}}>完了したら「次へ」を押してください</div>
+          </div>
+        ) : (
+          <div style={{textAlign:"center",padding:"12px 0"}}>
+            {/* 円形プログレス風タイマー */}
+            <div style={{position:"relative",width:160,height:160,margin:"0 auto 8px"}}>
+              <svg width="160" height="160" style={{position:"absolute",top:0,left:0,transform:"rotate(-90deg)"}}>
+                <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
+                <circle cx="80" cy="80" r="70" fill="none" stroke={isDone?"#9ca3af":isLastTen?"#ef4444":accentCol} strokeWidth="10"
+                  strokeDasharray={`${2*Math.PI*70}`}
+                  strokeDashoffset={`${2*Math.PI*70*(1-timeRatio)}`}
+                  strokeLinecap="round" style={{transition:"stroke-dashoffset .9s linear,stroke .3s"}}/>
+              </svg>
+              <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                <div style={{fontWeight:900,fontSize:36,color:isDone?"#9ca3af":isLastTen?"#ef4444":"#111",fontVariantNumeric:"tabular-nums",letterSpacing:1}}>{fmt(secondsLeft)}</div>
+                <div style={{fontSize:11,color:"#9ca3af"}}>{drill.displayTime}</div>
+              </div>
+            </div>
+            {isDone&&<div style={{fontSize:13,color:"#ef4444",fontWeight:700,marginBottom:4}}>⏰ 時間終了！次へ進んでください</div>}
+          </div>
+        )}
+
+        {/* 説明 */}
+        {drill.description&&<div style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#6b7280",textAlign:"center",marginTop:4}}>{drill.description}</div>}
+      </div>
+
+      {/* コントロールボタン */}
+      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",display:"flex",gap:10,justifyContent:"center",alignItems:"center"}}>
+        <button onClick={goPrev} disabled={currentIdx===0} style={{background:"#f3f4f6",border:"none",color:currentIdx===0?"#d1d5db":"#374151",borderRadius:10,width:52,height:52,fontSize:20,cursor:currentIdx===0?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⏮</button>
+        {!drill.isLap&&(
+          <button onClick={togglePause} style={{background:isPaused?"#15803d":"#f3f4f6",border:"none",color:isPaused?"#fff":"#374151",borderRadius:10,width:64,height:64,fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isPaused?"0 2px 10px #15803d44":"none"}}>
+            {isPaused?"▶":"⏸"}
+          </button>
+        )}
+        <button onClick={goNext} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,width:52,height:52,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 10px #15803d44"}}>⏭</button>
+      </div>
+
+      {/* 終了ボタン */}
+      <div style={{textAlign:"center",marginTop:12}}>
+        <button onClick={reset} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>練習を終了する</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 function App() {
   const [dbReady, setDbReady]  = useState(!!window._dbReady);
@@ -362,7 +634,7 @@ function App() {
             </div>
           </div>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
-            {[["builder","📋 作成"],["drills","🗂 ドリル"],["rest","☕ 休憩"],["saved","💾 保存済み"]].map(([key,label])=>(
+            {[["builder","📋 作成"],["drills","🗂 ドリル"],["rest","☕ 休憩"],["timer","▶️ 実行"],["saved","💾 保存済み"]].map(([key,label])=>(
               <button key={key} onClick={()=>setTab(key)} style={{padding:"8px 12px",borderRadius:"8px 8px 0 0",border:"none",background:tab===key?"#f0fdf4":"transparent",color:tab===key?"#15803d":"#ffffffaa",fontWeight:tab===key?800:500,fontSize:12,cursor:"pointer"}}>{label}</button>
             ))}
           </div>
@@ -511,6 +783,9 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* ══ TIMER ══ */}
+        {tab==="timer"&&<TimerTab menus={menus}/>}
 
         {/* ══ SAVED ══ */}
         {tab==="saved"&&(
