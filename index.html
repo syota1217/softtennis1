@@ -210,13 +210,20 @@ function LoginScreen({onLogin,onAdmin}){
 
   const handleLogin=()=>{
     setError("");
-    if(!userId.trim()){setError("IDを入力してください");return;}
-    if(!passcode.trim()){setError("パスコードを入力してください");return;}
-    if(userId.trim()===ADMIN_ID&&passcode.trim()===ADMIN_CODE){onAdmin();return;}
+    const uid=userId.trim();
+    const pc=passcode.trim();
+    if(!uid){setError("IDを入力してください");return;}
+    if(!pc){setError("パスコードを入力してください");return;}
+    // 管理者チェック（最優先）
+    if(uid===ADMIN_ID){
+      if(pc===ADMIN_CODE){onAdmin();return;}
+      else{setError("管理者パスコードが違います");return;}
+    }
+    // 一般ユーザーチェック
     const accounts=getAccounts();
-    const found=accounts.find(a=>a.userId===userId.trim());
+    const found=accounts.find(a=>a.userId===uid);
     if(!found){setError("IDが見つかりません");return;}
-    if(found.passcode!==passcode.trim()){setError("パスコードが違います");return;}
+    if(found.passcode!==pc){setError("パスコードが違います");return;}
     setSession({schoolName:found.schoolName,sport:found.sport,userId:found.userId});
     onLogin(found);
   };
