@@ -297,7 +297,7 @@ function LoginScreen({onLogin,onAdmin}){
         {/* デバッグ用：入力確認 */}
         {userId.length>0&&<div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>ID入力中: [{userId}] / PW: [{passcode}]</div>}
 
-        <button onClick={mode==="login"?handleLogin:handleRegister}
+        <button onClick={()=>{ if(mode==="login") handleLogin(); else handleRegister(); }}
           style={{width:"100%",background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>
           {mode==="login"?"ログイン":"登録してはじめる"}
         </button>
