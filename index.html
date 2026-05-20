@@ -216,9 +216,13 @@ function LoginScreen({onLogin,onAdmin}){
     if(!pc){setError("パスコードを入力してください");return;}
     // 管理者チェック（最優先）
     if(uid===ADMIN_ID){
-      if(pc===ADMIN_CODE){onAdmin();return;}
-      else{setError("管理者パスコードが違います");return;}
+      if(pc===ADMIN_CODE){
+        alert("管理者認証OK！管理者画面に移動します");
+        onAdmin();return;
+      }
+      else{setError("管理者パスコードが違います。入力値:"+pc);return;}
     }
+    setError("管理者IDが一致しません。入力値:["+uid+"] 期待値:["+ADMIN_ID+"]");
     // 一般ユーザーチェック
     const accounts=getAccounts();
     const found=accounts.find(a=>a.userId===uid);
