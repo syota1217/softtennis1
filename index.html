@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#15803d">
-  <title>ソフトテニス 練習メニュービルダー</title>
+  <title>部活動 練習メニュービルダー</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="icon" type="image/png" href="icon-192.png">
@@ -19,15 +19,11 @@
 <body>
 <div id="root"></div>
 
-<!-- Firebase SDK (UMD/compat版) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 function initFirebase() {
-  if (typeof firebase === "undefined") {
-    setTimeout(initFirebase, 100);
-    return;
-  }
+  if (typeof firebase === "undefined") { setTimeout(initFirebase, 100); return; }
   if (!firebase.apps.length) {
     firebase.initializeApp({
       apiKey: "AIzaSyDit79sOjOP9CTdIv79cwgA36BivDiu6zY",
@@ -45,32 +41,33 @@ function initFirebase() {
 initFirebase();
 </script>
 
-<!-- React -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
 <script type="text/babel" data-presets="react">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef } = React;
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-const CATEGORIES = ["ウォームアップ","外周","基礎打ち","球出し練習","ラリー","サーブ・レシーブ","ゲーム形式","フィジカル","クールダウン"];
-const CAT_COLOR = {
-  "ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6",
-  "ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e",
-  "フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c",
-};
-const GRADE_OPTS  = [{value:"",label:"全学年"},{value:"1年",label:"1年"},{value:"2年",label:"2年"},{value:"3年",label:"3年"}];
-const GENDER_OPTS = [{value:"",label:"男女共通"},{value:"男子",label:"男子"},{value:"女子",label:"女子"},{value:"混合",label:"混合"}];
-const formatTarget = (g,s) => { const r=(g||"")+(s||""); return r||"全体"; };
-const SET_LABEL_COLOR = {"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"};
-const SET_PRESETS = {1:[],2:["フォア","バック"],3:["フォア","バック","回り込み"],4:["フォア","バック","フォア","バック"],6:["フォア","バック","回り込み","フォア","バック","回り込み"]};
-const SET_OPTIONS = [1,2,3,4,6];
-const autoSetLabels = n => SET_PRESETS[n]||[];
-const EMPTY_FORM = {name:"",category:CATEGORIES[0],minutesPerSet:5,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:""};
-const DEFAULT_DRILLS = [
+// ─── スポーツ一覧 ─────────────────────────────────────────────────────────────
+const SPORT_LIST = [
+  { value:"softball_tennis", label:"テニス（軟式）", icon:"🎾" },
+  { value:"hardball_tennis", label:"テニス（硬式）", icon:"🎾" },
+  { value:"softball_baseball", label:"野球（軟式）", icon:"⚾" },
+  { value:"hardball_baseball", label:"野球（硬式）", icon:"⚾" },
+  { value:"soccer",          label:"サッカー",     icon:"⚽" },
+  { value:"basketball",      label:"バスケットボール", icon:"🏀" },
+  { value:"volleyball",      label:"バレーボール", icon:"🏐" },
+  { value:"badminton",       label:"バドミントン", icon:"🏸" },
+  { value:"track",           label:"陸上",         icon:"🏃" },
+  { value:"swimming",        label:"水泳",          icon:"🏊" },
+  { value:"other",           label:"その他",       icon:"🏅" },
+];
+
+// テニス（軟式）のプリセットカテゴリ（硬式も同じ）
+const ST_CATEGORIES = ["ウォームアップ","ランメニュー","基礎打ち","球出し練習","ラリー","サーブ・レシーブ","ゲーム形式","フィジカル","クールダウン"];
+const ST_DEFAULT_DRILLS = [
   {id:"d1",name:"ランニング・動的ストレッチ",category:"ウォームアップ",duration:10,minutesPerSet:10,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"軽いランニングと動的ストレッチで体を温める"},
-  {id:"d2",name:"外周ランニング",category:"外周",duration:0,minutesPerSet:0,sets:2,setLabels:[],grade:"",gender:"",timeUnit:"lap",lapsPerSet:3,description:"グラウンド外周を一定ペースで走る"},
+  {id:"d2",name:"外周ランニング",category:"ランメニュー",duration:0,minutesPerSet:0,sets:2,setLabels:[],grade:"",gender:"",timeUnit:"lap",lapsPerSet:3,description:"グラウンド外周を一定ペースで走る"},
   {id:"d3",name:"乱打（ストローク）",category:"基礎打ち",duration:15,minutesPerSet:15,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"フォア・バック交互に安定したラリーを続ける"},
   {id:"d4",name:"球出し練習",category:"球出し練習",duration:10,minutesPerSet:5,sets:2,setLabels:["フォア","バック"],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"コーチ/先輩が出す球を正確に返球"},
   {id:"d5",name:"クロスラリー",category:"ラリー",duration:15,minutesPerSet:15,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"クロスコートで深いラリーを意識して続ける"},
@@ -79,19 +76,27 @@ const DEFAULT_DRILLS = [
   {id:"d8",name:"静的ストレッチ",category:"クールダウン",duration:10,minutesPerSet:10,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"使った部位を中心にしっかり静的ストレッチ"},
 ];
 
-// ─── Firestore helpers ────────────────────────────────────────────────────────
-async function fsSetDrill(drill) {
-  await window._db.collection("drills").doc(drill.id).set(drill);
-}
-async function fsDeleteDrill(id) {
-  await window._db.collection("drills").doc(id).delete();
-}
-async function fsSetMenu(menu) {
-  await window._db.collection("menus").doc(menu.id).set(menu);
-}
-async function fsDeleteMenu(id) {
-  await window._db.collection("menus").doc(id).delete();
-}
+const CAT_COLORS = ["#f59e0b","#84cc16","#3b82f6","#8b5cf6","#06b6d4","#ec4899","#22c55e","#ef4444","#14b8a6","#0ea5e9","#f97316","#a855f7","#78716c"];
+const FIXED_CAT_COLOR = {"ウォームアップ":"#f59e0b","ランメニュー":"#84cc16","フィジカル":"#ef4444","クールダウン":"#14b8a6","ゲーム形式":"#22c55e","休憩":"#78716c"};
+const getCatColor = (cat, cats=[]) => FIXED_CAT_COLOR[cat] || CAT_COLORS[cats.indexOf(cat) % CAT_COLORS.length] || "#6b7280";
+
+const GRADE_OPTS  = [{value:"",label:"全学年"},{value:"1年",label:"1年"},{value:"2年",label:"2年"},{value:"3年",label:"3年"}];
+const GENDER_OPTS = [{value:"",label:"男女共通"},{value:"男子",label:"男子"},{value:"女子",label:"女子"},{value:"混合",label:"混合"}];
+const formatTarget = (g,s) => (g||"")+(s||"")||"全体";
+const SET_OPTIONS = [1,2,3,4,6];
+
+// ─── Firestore ────────────────────────────────────────────────────────────────
+const db = () => window._db;
+const fsSet    = (col,id,data) => db().collection(col).doc(id).set(data);
+const fsDel    = (col,id)      => db().collection(col).doc(id).delete();
+const fsGetAll = (col)         => db().collection(col).get();
+
+// ─── localStorage アカウント管理 ─────────────────────────────────────────────
+const getAccounts = () => { try { return JSON.parse(localStorage.getItem("club_accounts")||"[]"); } catch { return []; } };
+const saveAccounts = a => localStorage.setItem("club_accounts", JSON.stringify(a));
+const getSession   = () => { try { return JSON.parse(localStorage.getItem("club_session")||"null"); } catch { return null; } };
+const setSession   = s => localStorage.setItem("club_session", JSON.stringify(s));
+const clearSession = () => localStorage.removeItem("club_session");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function groupRows(items) {
@@ -99,7 +104,7 @@ function groupRows(items) {
   for (const item of items) {
     const gid=item.groupId||null;
     if (!gid) { rows.push([item]); continue; }
-    if (seen[gid]!==undefined) { rows[seen[gid]].push(item); }
+    if (seen[gid]!==undefined) rows[seen[gid]].push(item);
     else { seen[gid]=rows.length; rows.push([item]); }
   }
   return rows;
@@ -110,31 +115,30 @@ function timeLabelStr(item) {
   return `${item.duration}分`;
 }
 
-// ─── Small Components ─────────────────────────────────────────────────────────
-function Badge({cat}){const bg=CAT_COLOR[cat]||"#6b7280";return<span style={{background:bg+"22",color:bg,border:`1px solid ${bg}55`,borderRadius:99,padding:"2px 9px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{cat}</span>;}
-function TargetBadge({grade,gender}){const label=formatTarget(grade,gender);if(label==="全体")return null;return<span style={{fontSize:11,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"1px 8px",fontWeight:700,whiteSpace:"nowrap"}}>👥{label}</span>;}
-function SetTag({label,idx}){const c=SET_LABEL_COLOR[label]||"#6b7280";return<span style={{fontSize:11,background:c+"18",border:`1px solid ${c}44`,borderRadius:99,padding:"1px 8px",color:c,fontWeight:700,display:"inline-flex",alignItems:"center",gap:3}}><span style={{color:"#9ca3af",fontWeight:400}}>{idx+1}.</span>{label}</span>;}
-function SetLabels({drill}){const labels=(drill.setLabels||[]).filter(l=>l&&SET_LABEL_COLOR[l]);if(!labels.length)return null;return<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>{(drill.setLabels||[]).map((lb,i)=>lb&&SET_LABEL_COLOR[lb]?<SetTag key={i} label={lb} idx={i}/>:null)}</div>;}
+// ─── UI部品 ──────────────────────────────────────────────────────────────────
+function Badge({cat,cats}){const c=getCatColor(cat,cats);return<span style={{background:c+"22",color:c,border:`1px solid ${c}55`,borderRadius:99,padding:"2px 9px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{cat}</span>;}
+function TargetBadge({grade,gender}){const l=formatTarget(grade,gender);if(l==="全体")return null;return<span style={{fontSize:11,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"1px 8px",fontWeight:700,whiteSpace:"nowrap"}}>👥{l}</span>;}
+function SetLabels({drill}){const ls=(drill.setLabels||[]).filter(l=>l);if(!ls.length)return null;return<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>{ls.map((l,i)=><span key={i} style={{fontSize:11,background:"#f3f4f6",borderRadius:99,padding:"1px 8px",color:"#374151"}}>{i+1}.{l}</span>)}</div>;}
 function TimeLabel({drill}){
   if(drill.timeUnit==="lap"){const l=drill.lapsPerSet||1,s=drill.sets||1;return s>1?<span style={{fontSize:12,color:"#6b7280"}}>{l}周×{s}セット＝<b>{l*s}周</b></span>:<span style={{fontSize:12,color:"#6b7280"}}>{l}周</span>;}
   if(drill.minutesPerSet&&drill.sets&&drill.sets>1)return<span style={{fontSize:12,color:"#6b7280"}}>{drill.minutesPerSet}分×{drill.sets}セット＝<b>{drill.duration}分</b></span>;
   return<span style={{fontSize:12,color:"#6b7280"}}>{drill.duration}分</span>;
 }
-function DrillCard({item}){return(
+function DC({item,cats}){return(
   <div style={{flex:1,minWidth:0}}>
     <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{item.name}</div>
-    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}><Badge cat={item.category}/><TimeLabel drill={item}/><TargetBadge grade={item.grade} gender={item.gender}/></div>
+    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}><Badge cat={item.category} cats={cats}/><TimeLabel drill={item}/><TargetBadge grade={item.grade} gender={item.gender}/></div>
     <SetLabels drill={item}/>
   </div>
 );}
+
 function Btn({children,onClick,variant="primary",small,disabled,style:s}){
-  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:small?12:14,padding:small?"5px 12px":"10px 20px",transition:"all .15s",opacity:disabled?.45:1,...s};
-  const vs={primary:{background:"#16a34a",color:"#fff",boxShadow:"0 2px 8px #16a34a44"},danger:{background:"#ef444422",color:"#ef4444",border:"1px solid #ef444455"},ghost:{background:"#f3f4f6",color:"#374151"}};
-  return<button onClick={onClick} disabled={disabled} style={{...base,...vs[variant]}}>{children}</button>;
+  const vs={primary:{background:"#16a34a",color:"#fff",boxShadow:"0 2px 8px #16a34a44"},danger:{background:"#ef444422",color:"#ef4444",border:"1px solid #ef444455"},ghost:{background:"#f3f4f6",color:"#374151"},blue:{background:"#dbeafe",color:"#1d4ed8",border:"1px solid #93c5fd"}};
+  return<button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:700,fontSize:small?12:14,padding:small?"5px 12px":"10px 20px",opacity:disabled?.45:1,...vs[variant],...s}}>{children}</button>;
 }
 function Modal({title,onClose,children}){return(
   <div style={{position:"fixed",inset:0,zIndex:100,background:"#00000066",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
-    <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:"100%",maxWidth:480,boxShadow:"0 20px 60px #00000033",maxHeight:"90vh",overflowY:"auto"}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:"100%",maxWidth:500,boxShadow:"0 20px 60px #00000033",maxHeight:"90vh",overflowY:"auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
         <span style={{fontWeight:800,fontSize:17}}>{title}</span>
         <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#6b7280"}}>✕</button>
@@ -158,20 +162,20 @@ function FSelect({label,value,onChange,options}){return(
     </select>
   </div>
 );}
-function TargetSelector({grade,gender,onGradeChange,onGenderChange}){return(
+function TargetSelector({grade,gender,onGrade,onGender}){return(
   <div style={{marginBottom:14}}>
     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>対象</div>
     <div style={{background:"#f9fafb",borderRadius:8,padding:"10px 12px",display:"flex",flexDirection:"column",gap:10}}>
       <div>
         <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,marginBottom:6}}>学年</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {GRADE_OPTS.map(opt=>{const active=(grade||"")===opt.value;return<button key={opt.value} onClick={()=>onGradeChange(opt.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?"#0369a1":"#e5e7eb"}`,background:active?"#e0f2fe":"#fff",color:active?"#0369a1":"#6b7280",cursor:"pointer"}}>{opt.label}</button>;})}
+          {GRADE_OPTS.map(o=>{const a=(grade||"")===o.value;return<button key={o.value} onClick={()=>onGrade(o.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:a?800:500,border:`2px solid ${a?"#0369a1":"#e5e7eb"}`,background:a?"#e0f2fe":"#fff",color:a?"#0369a1":"#6b7280",cursor:"pointer"}}>{o.label}</button>;})}
         </div>
       </div>
       <div>
         <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,marginBottom:6}}>性別</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {GENDER_OPTS.map(opt=>{const active=(gender||"")===opt.value;const col=opt.value==="男子"?"#0ea5e9":opt.value==="女子"?"#ec4899":opt.value==="混合"?"#22c55e":"#6b7280";return<button key={opt.value} onClick={()=>onGenderChange(opt.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?col:"#e5e7eb"}`,background:active?col+"22":"#fff",color:active?col:"#6b7280",cursor:"pointer"}}>{opt.label}</button>;})}
+          {GENDER_OPTS.map(o=>{const a=(gender||"")===o.value;const c=o.value==="男子"?"#0ea5e9":o.value==="女子"?"#ec4899":o.value==="混合"?"#22c55e":"#6b7280";return<button key={o.value} onClick={()=>onGender(o.value)} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:a?800:500,border:`2px solid ${a?c:"#e5e7eb"}`,background:a?c+"22":"#fff",color:a?c:"#6b7280",cursor:"pointer"}}>{o.label}</button>;})}
         </div>
       </div>
       <div style={{fontSize:12,color:"#374151"}}>対象：<b style={{color:"#0369a1"}}>{formatTarget(grade,gender)}</b></div>
@@ -179,349 +183,100 @@ function TargetSelector({grade,gender,onGradeChange,onGenderChange}){return(
   </div>
 );}
 
-// ─── Timer Tab ───────────────────────────────────────────────────────────────
-function TimerTab({ menus }) {
-  const [phase, setPhase]       = useState("select"); // select | ready | running | done
-  const [selectedMenu, setSelectedMenu] = useState(null);
-  const [drillList, setDrillList]       = useState([]); // 実行するドリルの平坦化リスト
-  const [currentIdx, setCurrentIdx]     = useState(0);
-  const [secondsLeft, setSecondsLeft]   = useState(0);
-  const [isPaused, setIsPaused]         = useState(false);
-  const timerRef = useRef(null);
-  const beepCtx  = useRef(null);
-
-  // メニューのドリルを平坦化（グループも含めて1つずつ）
-  const flattenDrills = (drills) => {
-    const result = [];
-    const rows = groupRows(drills);
-    rows.forEach(row => {
-      row.forEach(item => {
-        if (item.timeUnit === "lap") {
-          result.push({ ...item, displayTime: `${(item.lapsPerSet||1)*( item.sets||1)}周`, isLap: true, durationSec: 0 });
-        } else {
-          result.push({ ...item, displayTime: `${item.duration}分`, isLap: false, durationSec: (item.duration||0)*60 });
-        }
-      });
-    });
-    return result;
+// ─── ドラッグ並び替え ─────────────────────────────────────────────────────────
+function SortableList({items,onReorder,renderItem}){
+  const dragIdx=useRef(null);
+  const [overIdx,setOverIdx]=useState(null);
+  const onDragStart=i=>{dragIdx.current=i;};
+  const onDragOver=(e,i)=>{e.preventDefault();setOverIdx(i);};
+  const onDrop=i=>{
+    if(dragIdx.current===null||dragIdx.current===i){setOverIdx(null);return;}
+    const next=[...items];const[m]=next.splice(dragIdx.current,1);next.splice(i,0,m);
+    onReorder(next);dragIdx.current=null;setOverIdx(null);
   };
-
-  const startMenu = (menu) => {
-    const list = flattenDrills(menu.drills);
-    setSelectedMenu(menu);
-    setDrillList(list);
-    setCurrentIdx(0);
-    setPhase("ready");
-  };
-
-  const startTimer = () => {
-    const drill = drillList[currentIdx];
-    if (drill.isLap) {
-      setPhase("running");
-      setSecondsLeft(0);
-    } else {
-      setSecondsLeft(drill.durationSec);
-      setIsPaused(false);
-      setPhase("running");
-    }
-  };
-
-  // カウントダウン
-  useEffect(() => {
-    if (phase !== "running" || isPaused) return;
-    const drill = drillList[currentIdx];
-    if (drill?.isLap) return; // 周は手動
-    if (secondsLeft <= 0) {
-      playBeep(880, 0.3);
-      return;
-    }
-    timerRef.current = setInterval(() => {
-      setSecondsLeft(s => {
-        if (s <= 1) {
-          clearInterval(timerRef.current);
-          playBeep(880, 0.3);
-          return 0;
-        }
-        if (s === 11) playBeep(440, 0.1); // 残り10秒ビープ
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [phase, isPaused, currentIdx]);
-
-  const playBeep = (freq, dur) => {
-    try {
-      if (!beepCtx.current) beepCtx.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = beepCtx.current;
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0.3, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-      o.start(); o.stop(ctx.currentTime + dur);
-    } catch(e) {}
-  };
-
-  const goNext = () => {
-    clearInterval(timerRef.current);
-    if (currentIdx >= drillList.length - 1) { setPhase("done"); return; }
-    const next = currentIdx + 1;
-    setCurrentIdx(next);
-    const drill = drillList[next];
-    setSecondsLeft(drill.isLap ? 0 : drill.durationSec);
-    setIsPaused(false);
-    playBeep(660, 0.2);
-  };
-
-  const goPrev = () => {
-    clearInterval(timerRef.current);
-    if (currentIdx <= 0) return;
-    const prev = currentIdx - 1;
-    setCurrentIdx(prev);
-    const drill = drillList[prev];
-    setSecondsLeft(drill.isLap ? 0 : drill.durationSec);
-    setIsPaused(false);
-  };
-
-  const togglePause = () => {
-    clearInterval(timerRef.current);
-    setIsPaused(p => !p);
-  };
-
-  const reset = () => {
-    clearInterval(timerRef.current);
-    setPhase("select");
-    setSelectedMenu(null);
-    setDrillList([]);
-    setCurrentIdx(0);
-    setIsPaused(false);
-  };
-
-  const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  const progress = drillList.length ? ((currentIdx) / drillList.length) * 100 : 0;
-  const drill = drillList[currentIdx];
-  const catCol = {"ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6","ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e","フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c"};
-  const accentCol = drill ? (catCol[drill.category] || "#15803d") : "#15803d";
-
-  // ── メニュー選択画面 ──
-  if (phase === "select") return (
-    <div>
-      <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>練習メニューを選択</div>
-      <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>実行したい保存済みメニューを選んでください</div>
-      {menus.length === 0 ? (
-        <div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>
-          保存済みメニューがありません。<br/>先にメニューを作成・保存してください。
-        </div>
-      ) : menus.map(m => (
-        <div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-            <div>
-              <div style={{fontWeight:800,fontSize:15,marginBottom:3}}>{m.name}</div>
-              <div style={{fontSize:12,color:"#9ca3af"}}>{m.createdAt} ／ {m.drills.length}ドリル ／ 合計{m.total}分</div>
-            </div>
-            <button onClick={()=>startMenu(m)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"10px 18px",fontWeight:800,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>▶ 開始</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  // ── 準備画面 ──
-  if (phase === "ready") return (
-    <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
-      <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>練習メニュー</div>
-      <div style={{fontWeight:900,fontSize:20,color:"#15803d",marginBottom:20}}>{selectedMenu.name}</div>
-      <div style={{background:"#f9fafb",borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
-        {drillList.map((d,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:i<drillList.length-1?"1px solid #f3f4f6":"none"}}>
-            <span style={{fontSize:12,color:"#9ca3af",width:20,textAlign:"right",flexShrink:0}}>{i+1}</span>
-            <span style={{fontSize:13,fontWeight:600,flex:1}}>{d.name}</span>
-            <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap"}}>{d.displayTime}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-        <button onClick={reset} style={{background:"#f3f4f6",border:"none",color:"#374151",borderRadius:10,padding:"12px 24px",fontWeight:700,fontSize:15,cursor:"pointer"}}>← 戻る</button>
-        <button onClick={startTimer} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>▶ スタート</button>
-      </div>
-    </div>
-  );
-
-  // ── 完了画面 ──
-  if (phase === "done") return (
-    <div style={{background:"#fff",borderRadius:16,padding:32,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
-      <div style={{fontSize:48,marginBottom:16}}>🎾</div>
-      <div style={{fontWeight:900,fontSize:22,color:"#15803d",marginBottom:8}}>練習完了！</div>
-      <div style={{fontSize:14,color:"#6b7280",marginBottom:24}}>{selectedMenu.name}  お疲れ様でした</div>
-      <button onClick={reset} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer"}}>← メニューに戻る</button>
-    </div>
-  );
-
-  // ── 実行画面 ──
-  const timeRatio = drill.durationSec > 0 ? secondsLeft / drill.durationSec : 0;
-  const isLastTen = !drill.isLap && secondsLeft <= 10 && secondsLeft > 0;
-  const isDone    = !drill.isLap && secondsLeft === 0;
-  const setLabels = (drill.setLabels||[]).filter(l=>l);
-
-  return (
-    <div>
-      {/* 進捗バー */}
-      <div style={{background:"#fff",borderRadius:12,padding:"12px 16px",marginBottom:12,boxShadow:"0 1px 6px #0001"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <span style={{fontSize:12,fontWeight:700,color:"#6b7280"}}>{selectedMenu.name}</span>
-          <span style={{fontSize:12,color:"#6b7280"}}>{currentIdx+1} / {drillList.length}</span>
-        </div>
-        <div style={{background:"#e5e7eb",borderRadius:99,height:8,overflow:"hidden"}}>
-          <div style={{background:"#15803d",height:"100%",width:`${progress}%`,borderRadius:99,transition:"width .4s"}}/>
-        </div>
-      </div>
-
-      {/* メインカード */}
-      <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",marginBottom:12}}>
-        {/* カテゴリ */}
-        <div style={{textAlign:"center",marginBottom:8}}>
-          <span style={{display:"inline-block",padding:"3px 14px",borderRadius:99,fontSize:12,fontWeight:700,background:accentCol+"22",color:accentCol,border:`1px solid ${accentCol}44`}}>{drill.category}</span>
-        </div>
-
-        {/* ドリル名 */}
-        <div style={{textAlign:"center",fontWeight:900,fontSize:22,color:"#111",marginBottom:8,lineHeight:1.3}}>{drill.name}</div>
-
-        {/* 対象 */}
-        {formatTarget(drill.grade,drill.gender)!=="全体"&&(
-          <div style={{textAlign:"center",marginBottom:8}}>
-            <span style={{fontSize:12,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"2px 10px",fontWeight:700}}>👥{formatTarget(drill.grade,drill.gender)}</span>
-          </div>
-        )}
-
-        {/* セットラベル */}
-        {setLabels.length>0&&(
-          <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginBottom:12}}>
-            {setLabels.map((l,i)=>{const c={"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"}[l]||"#6b7280";return<span key={i} style={{fontSize:12,background:c+"18",border:`1px solid ${c}44`,borderRadius:99,padding:"2px 10px",color:c,fontWeight:700}}>{i+1}.{l}</span>;})}
-          </div>
-        )}
-
-        {/* タイマー表示 */}
-        {drill.isLap ? (
-          <div style={{textAlign:"center",padding:"20px 0"}}>
-            <div style={{fontSize:48,marginBottom:8}}>🏃</div>
-            <div style={{fontWeight:900,fontSize:28,color:accentCol,marginBottom:4}}>{drill.displayTime}</div>
-            <div style={{fontSize:13,color:"#6b7280"}}>完了したら「次へ」を押してください</div>
-          </div>
-        ) : (
-          <div style={{textAlign:"center",padding:"12px 0"}}>
-            {/* 円形プログレス風タイマー */}
-            <div style={{position:"relative",width:160,height:160,margin:"0 auto 8px"}}>
-              <svg width="160" height="160" style={{position:"absolute",top:0,left:0,transform:"rotate(-90deg)"}}>
-                <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
-                <circle cx="80" cy="80" r="70" fill="none" stroke={isDone?"#9ca3af":isLastTen?"#ef4444":accentCol} strokeWidth="10"
-                  strokeDasharray={`${2*Math.PI*70}`}
-                  strokeDashoffset={`${2*Math.PI*70*(1-timeRatio)}`}
-                  strokeLinecap="round" style={{transition:"stroke-dashoffset .9s linear,stroke .3s"}}/>
-              </svg>
-              <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                <div style={{fontWeight:900,fontSize:36,color:isDone?"#9ca3af":isLastTen?"#ef4444":"#111",fontVariantNumeric:"tabular-nums",letterSpacing:1}}>{fmt(secondsLeft)}</div>
-                <div style={{fontSize:11,color:"#9ca3af"}}>{drill.displayTime}</div>
-              </div>
-            </div>
-            {isDone&&<div style={{fontSize:13,color:"#ef4444",fontWeight:700,marginBottom:4}}>⏰ 時間終了！次へ進んでください</div>}
-          </div>
-        )}
-
-        {/* 説明 */}
-        {drill.description&&<div style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#6b7280",textAlign:"center",marginTop:4}}>{drill.description}</div>}
-      </div>
-
-      {/* コントロールボタン */}
-      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",display:"flex",gap:10,justifyContent:"center",alignItems:"center"}}>
-        <button onClick={goPrev} disabled={currentIdx===0} style={{background:"#f3f4f6",border:"none",color:currentIdx===0?"#d1d5db":"#374151",borderRadius:10,width:52,height:52,fontSize:20,cursor:currentIdx===0?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⏮</button>
-        {!drill.isLap&&(
-          <button onClick={togglePause} style={{background:isPaused?"#15803d":"#f3f4f6",border:"none",color:isPaused?"#fff":"#374151",borderRadius:10,width:64,height:64,fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isPaused?"0 2px 10px #15803d44":"none"}}>
-            {isPaused?"▶":"⏸"}
-          </button>
-        )}
-        <button onClick={goNext} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,width:52,height:52,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 10px #15803d44"}}>⏭</button>
-      </div>
-
-      {/* 終了ボタン */}
-      <div style={{textAlign:"center",marginTop:12}}>
-        <button onClick={reset} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>練習を終了する</button>
-      </div>
-    </div>
-  );
+  const onDragEnd=()=>{dragIdx.current=null;setOverIdx(null);};
+  return<div>{items.map((item,i)=><div key={item.uid??item.id??i} draggable onDragStart={()=>onDragStart(i)} onDragOver={e=>onDragOver(e,i)} onDrop={()=>onDrop(i)} onDragEnd={onDragEnd} style={{opacity:dragIdx.current===i?.4:1,borderTop:overIdx===i?"2px solid #16a34a":"2px solid transparent"}}>{renderItem(item,i)}</div>)}</div>;
 }
 
-// ─── Login Screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin, onAdmin }) {
-  const [schoolName, setSchoolName] = useState("");
-  const [passcode,   setPasscode]   = useState("");
-  const [mode,       setMode]       = useState("login"); // login | register
-  const [error,      setError]      = useState("");
+// ─── ログイン画面 ─────────────────────────────────────────────────────────────
+function LoginScreen({onLogin,onAdmin}){
+  const ADMIN_SCHOOL="相模原青陵高校", ADMIN_CODE="12170097";
+  const [mode,setMode]=useState("login");
+  const [schoolName,setSchoolName]=useState("");
+  const [sport,setSport]=useState("softball_tennis");
+  const [userId,setUserId]=useState("");
+  const [passcode,setPasscode]=useState("");
+  const [error,setError]=useState("");
 
-  const ADMIN_SCHOOL = "相模原青陵高校";
-  const ADMIN_CODE   = "12170097";
-  const getAccounts = () => { try { return JSON.parse(localStorage.getItem("st_accounts")||"[]"); } catch { return []; } };
-
-  const handleLogin = () => {
+  const handleLogin=()=>{
     setError("");
-    if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
-    if (!passcode.trim())   { setError("パスコードを入力してください"); return; }
-    // 管理者チェック（タブなし・隠し）
-    if (schoolName.trim() === ADMIN_SCHOOL && passcode === ADMIN_CODE) { onAdmin(); return; }
-    const accounts = getAccounts();
-    const found = accounts.find(a => a.schoolName === schoolName.trim());
-    if (!found) { setError("学校名が見つかりません。新規登録してください"); return; }
-    if (found.passcode !== passcode) { setError("パスコードが違います"); return; }
-    localStorage.setItem("st_session", JSON.stringify({ schoolName: found.schoolName }));
-    onLogin(found.schoolName);
+    if(!schoolName.trim()){setError("学校名を入力してください");return;}
+    if(!userId.trim()){setError("IDを入力してください");return;}
+    if(!passcode.trim()){setError("パスコードを入力してください");return;}
+    if(schoolName.trim()===ADMIN_SCHOOL&&passcode===ADMIN_CODE){onAdmin();return;}
+    const accounts=getAccounts();
+    const found=accounts.find(a=>a.schoolName===schoolName.trim()&&a.userId===userId.trim());
+    if(!found){setError("学校名またはIDが見つかりません");return;}
+    if(found.passcode!==passcode){setError("パスコードが違います");return;}
+    setSession({schoolName:found.schoolName,sport:found.sport,userId:found.userId});
+    onLogin(found);
   };
 
-  const handleRegister = () => {
+  const handleRegister=()=>{
     setError("");
-    if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
-    if (passcode.length < 4) { setError("パスコードは4文字以上で設定してください"); return; }
-    const accounts = getAccounts();
-    if (accounts.find(a => a.schoolName === schoolName.trim())) {
-      setError("この学校名はすでに登録されています。ログインタブからパスコードでログインしてください");
-      setMode("login");
-      return;
+    if(!schoolName.trim()){setError("学校名を入力してください");return;}
+    if(!userId.trim()){setError("IDを入力してください");return;}
+    if(passcode.length<4){setError("パスコードは4文字以上で設定してください");return;}
+    const accounts=getAccounts();
+    // 同じ学校名＋スポーツがすでにある場合はログインへ誘導
+    const sameGroup=accounts.find(a=>a.schoolName===schoolName.trim()&&a.sport===sport);
+    if(sameGroup){
+      setError(`この学校・スポーツはすでに登録されています。ID「${sameGroup.userId}」とパスコードでログインしてください`);
+      setMode("login");return;
     }
-    accounts.push({ schoolName: schoolName.trim(), passcode });
-    localStorage.setItem("st_accounts", JSON.stringify(accounts));
-    localStorage.setItem("st_session", JSON.stringify({ schoolName: schoolName.trim() }));
-    onLogin(schoolName.trim());
+    if(accounts.find(a=>a.schoolName===schoolName.trim()&&a.userId===userId.trim())){
+      setError("同じ学校名＋IDがすでに登録されています");setMode("login");return;
+    }
+    const newAcc={schoolName:schoolName.trim(),sport,userId:userId.trim(),passcode};
+    accounts.push(newAcc);
+    saveAccounts(accounts);
+    setSession({schoolName:newAcc.schoolName,sport:newAcc.sport,userId:newAcc.userId});
+    onLogin(newAcc);
   };
 
-  return (
+  const sportInfo=SPORT_LIST.find(s=>s.value===sport)||SPORT_LIST[0];
+
+  return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#15803d,#166534)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:380,boxShadow:"0 20px 60px #00000033"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:40,marginBottom:8}}>🎾</div>
-          <div style={{fontWeight:900,fontSize:20,color:"#15803d"}}>ソフトテニス</div>
-          <div style={{fontWeight:900,fontSize:20,color:"#15803d",marginBottom:4}}>練習メニュービルダー</div>
-          <div style={{fontSize:12,color:"#9ca3af"}}>学校ごとにデータを管理します</div>
+      <div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:420,boxShadow:"0 20px 60px #00000033"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:44,marginBottom:6}}>{mode==="register"?sportInfo.icon:"🏅"}</div>
+          <div style={{fontWeight:900,fontSize:21,color:"#15803d"}}>部活動</div>
+          <div style={{fontWeight:900,fontSize:21,color:"#15803d",marginBottom:4}}>練習メニュービルダー</div>
+          <div style={{fontSize:12,color:"#9ca3af"}}>学校・スポーツごとにデータを管理します</div>
         </div>
 
-        {/* タブ切り替え（ログイン・新規登録のみ） */}
         <div style={{display:"flex",background:"#f3f4f6",borderRadius:10,padding:3,marginBottom:20}}>
-          {[["login","ログイン"],["register","新規登録"]].map(([m,label])=>(
-            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:mode===m?"#fff":"transparent",color:mode===m?"#15803d":"#6b7280",fontWeight:mode===m?800:500,fontSize:13,cursor:"pointer",boxShadow:mode===m?"0 1px 4px #0001":"none",transition:"all .15s"}}>{label}</button>
+          {[["login","ログイン"],["register","新規登録"]].map(([m,l])=>(
+            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:mode===m?"#fff":"transparent",color:mode===m?"#15803d":"#6b7280",fontWeight:mode===m?800:500,fontSize:13,cursor:"pointer"}}>{l}</button>
           ))}
         </div>
 
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>学校名</div>
-          <input value={schoolName} onChange={e=>setSchoolName(e.target.value)} placeholder="例: ○○市立○○中学校"
-            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
-            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>パスコード</div>
-          <input type="password" value={passcode} onChange={e=>setPasscode(e.target.value)}
-            placeholder={mode==="register"?"4文字以上で設定":"パスコードを入力"}
-            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
-            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
-        </div>
+        <FInput label="学校名" value={schoolName} onChange={setSchoolName} placeholder="例: ○○市立○○中学校"/>
+
+        {/* スポーツ選択（新規登録のみ） */}
+        {mode==="register"&&(
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>スポーツ</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {SPORT_LIST.map(s=>{const a=sport===s.value;return<button key={s.value} onClick={()=>setSport(s.value)} style={{padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:a?800:500,border:`2px solid ${a?"#15803d":"#e5e7eb"}`,background:a?"#dcfce7":"#fff",color:a?"#15803d":"#6b7280",cursor:"pointer"}}>{s.icon} {s.label}</button>;})}
+            </div>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>※ 登録後の変更は管理者権限が必要です</div>
+          </div>
+        )}
+
+        <FInput label="ID（自分で決める）" value={userId} onChange={setUserId} placeholder="例: coach_yamada"/>
+        <FInput label="パスコード" value={passcode} onChange={setPasscode} placeholder={mode==="register"?"4文字以上で設定":"パスコードを入力"} type="password"/>
 
         {error&&<div style={{background:"#fef2f2",color:"#ef4444",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:14}}>{error}</div>}
 
@@ -529,363 +284,461 @@ function LoginScreen({ onLogin, onAdmin }) {
           style={{width:"100%",background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>
           {mode==="login"?"ログイン":"登録してはじめる"}
         </button>
-
-        {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:12}}>※ パスコードは他のコーチと共有してください</div>}
+        {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:12}}>※ 同じ学校・スポーツのコーチ全員が同じIDとパスコードを使います。コーチ全員で共有してください。</div>}
       </div>
     </div>
   );
 }
 
-// ─── Admin Screen ─────────────────────────────────────────────────────────────
-function AdminScreen({ onLogout }) {
-  const getAccounts = () => { try { return JSON.parse(localStorage.getItem("st_accounts")||"[]"); } catch { return []; } };
-  const [accounts, setAccounts] = useState(getAccounts);
-  const [confirm,  setConfirm]  = useState(null); // { school, mode } mode: "account" | "full"
-  const [deleting, setDeleting] = useState(false);
-  const [msg,      setMsg]      = useState("");
-  const [showPass, setShowPass] = useState({}); // schoolName -> bool
-  const togglePass = (name) => setShowPass(p=>({...p,[name]:!p[name]}));
-  const [editPass, setEditPass] = useState({}); // schoolName -> { open, value, error }
+// ─── 管理者画面 ───────────────────────────────────────────────────────────────
+function AdminScreen({onLogout}){
+  const [accounts,setAccounts]=useState(getAccounts);
+  const [confirm,setConfirm]=useState(null);
+  const [deleting,setDeleting]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [showPass,setShowPass]=useState({});
+  const [editPass,setEditPass]=useState({});
+  const [editSport,setEditSport]=useState(null); // {key, sport}
+  const [editSchool,setEditSchool]=useState(null); // {key, schoolName}
 
-  const openEditPass = (name) => setEditPass(p=>({...p,[name]:{open:true,value:"",error:""}}));
-  const closeEditPass = (name) => setEditPass(p=>({...p,[name]:{open:false,value:"",error:""}}));
-  const changePasscode = (schoolName) => {
-    const ep = editPass[schoolName];
-    if (!ep?.value || ep.value.length < 4) {
-      setEditPass(p=>({...p,[schoolName]:{...p[schoolName],error:"4文字以上で入力してください"}}));
-      return;
-    }
-    const updated = accounts.map(a => a.schoolName===schoolName ? {...a, passcode: ep.value} : a);
-    localStorage.setItem("st_accounts", JSON.stringify(updated));
-    setAccounts(updated);
-    closeEditPass(schoolName);
-    setMsg(`「${schoolName}」のパスコードを変更しました`);
+  const key=a=>`${a.schoolName}::${a.userId}`;
+
+  const deleteAccount=(a)=>{
+    const upd=accounts.filter(x=>key(x)!==key(a));
+    saveAccounts(upd);setAccounts(upd);setConfirm(null);
+    setMsg(`「${a.schoolName} / ${a.userId}」を削除しました`);
   };
-
-  // アカウントのみ削除（Firestoreは残す）
-  const deleteAccountOnly = (schoolName) => {
-    const updated = accounts.filter(a => a.schoolName !== schoolName);
-    localStorage.setItem("st_accounts", JSON.stringify(updated));
-    setAccounts(updated);
-    setConfirm(null);
-    setMsg(`「${schoolName}」のアカウントを削除しました`);
-  };
-
-  // 完全削除（アカウント＋Firestoreのdrills・menus）
-  const deleteAll = async (schoolName) => {
+  const deleteAll=async(a)=>{
     setDeleting(true);
-    setMsg("");
-    try {
-      const db = window._db;
-      // drills全削除
-      const drillsSnap = await db.collection("drills").get();
-      const drillBatch = db.batch();
-      drillsSnap.docs.forEach(d => drillBatch.delete(d.ref));
-      await drillBatch.commit();
-      // menus全削除
-      const menusSnap = await db.collection("menus").get();
-      const menuBatch = db.batch();
-      menusSnap.docs.forEach(d => menuBatch.delete(d.ref));
-      await menuBatch.commit();
-      // アカウント削除
-      const updated = accounts.filter(a => a.schoolName !== schoolName);
-      localStorage.setItem("st_accounts", JSON.stringify(updated));
-      setAccounts(updated);
-      setMsg(`「${schoolName}」のアカウントとすべてのデータを完全に削除しました`);
-    } catch(e) {
-      setMsg("削除中にエラーが発生しました: " + e.message);
-    }
-    setDeleting(false);
-    setConfirm(null);
+    try{
+      const ds=await fsGetAll("drills");const db2=db().batch();ds.docs.forEach(d=>db2.delete(d.ref));await db2.commit();
+      const ms=await fsGetAll("menus");const mb=db().batch();ms.docs.forEach(d=>mb.delete(d.ref));await mb.commit();
+      const upd=accounts.filter(x=>key(x)!==key(a));saveAccounts(upd);setAccounts(upd);
+      setMsg(`「${a.schoolName} / ${a.userId}」とFirestoreデータをすべて削除しました`);
+    }catch(e){setMsg("エラー: "+e.message);}
+    setDeleting(false);setConfirm(null);
+  };
+  const changePasscode=(a,newPass)=>{
+    if(!newPass||newPass.length<4){setEditPass(p=>({...p,[key(a)]:{...p[key(a)],error:"4文字以上"}}));return;}
+    const upd=accounts.map(x=>key(x)===key(a)?{...x,passcode:newPass}:x);
+    saveAccounts(upd);setAccounts(upd);
+    setEditPass(p=>({...p,[key(a)]:{open:false,value:"",error:""}}));
+    setMsg("パスコードを変更しました");
+  };
+  const changeSport=(a,newSport)=>{
+    const upd=accounts.map(x=>key(x)===key(a)?{...x,sport:newSport}:x);
+    saveAccounts(upd);setAccounts(upd);setEditSport(null);
+    setMsg(`「${a.schoolName}」のスポーツを変更しました`);
+  };
+  const changeSchool=(a,newName)=>{
+    if(!newName.trim()){return;}
+    const upd=accounts.map(x=>key(x)===key(a)?{...x,schoolName:newName.trim()}:x);
+    saveAccounts(upd);setAccounts(upd);setEditSchool(null);
+    setMsg("学校名を変更しました");
   };
 
-  return (
+  return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#7f1d1d,#991b1b)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px #00000033"}}>
+      <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:480,boxShadow:"0 20px 60px #00000033",maxHeight:"95vh",overflowY:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <div>
-            <div style={{fontWeight:900,fontSize:18,color:"#dc2626"}}>🔐 管理者メニュー</div>
-            <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>登録学校の管理</div>
-          </div>
+          <div><div style={{fontWeight:900,fontSize:18,color:"#dc2626"}}>🔐 管理者メニュー</div><div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>アカウント・スポーツ・学校名の管理</div></div>
           <button onClick={onLogout} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:8,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>ログアウト</button>
         </div>
 
-        {msg&&(
-          <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#15803d",fontWeight:600}}>
-            ✅ {msg}
-          </div>
-        )}
+        {msg&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#15803d",fontWeight:600}}>✅ {msg}</div>}
 
-        <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:10}}>登録済み学校（{accounts.length}件）</div>
+        <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:10}}>登録アカウント（{accounts.length}件）</div>
 
-        {accounts.length===0?(
-          <div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:14}}>登録されている学校はありません</div>
-        ):accounts.map(a=>(
-          <div key={a.schoolName} style={{padding:"14px",background:"#f9fafb",borderRadius:10,marginBottom:10,border:"1px solid #e5e7eb"}}>
-            <div style={{marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{a.schoolName}</div>
-              <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#374151"}}>
-                <span style={{color:"#6b7280"}}>パスコード：</span>
-                <span style={{fontWeight:700,letterSpacing:1,fontFamily:"monospace",fontSize:13,color:"#111"}}>
-                  {showPass[a.schoolName] ? a.passcode : "●".repeat(a.passcode.length)}
-                </span>
-                <button onClick={()=>togglePass(a.schoolName)} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#6b7280",borderRadius:6,padding:"2px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                  {showPass[a.schoolName] ? "隠す" : "表示"}
-                </button>
-                <button onClick={()=>editPass[a.schoolName]?.open ? closeEditPass(a.schoolName) : openEditPass(a.schoolName)}
-                  style={{background:"#e0f2fe",border:"1px solid #7dd3fc",color:"#0369a1",borderRadius:6,padding:"2px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-                  変更
-                </button>
+        {accounts.length===0?<div style={{textAlign:"center",padding:24,color:"#9ca3af"}}>登録アカウントなし</div>:accounts.map(a=>{
+          const k=key(a);
+          const sp=SPORT_LIST.find(s=>s.value===a.sport)||SPORT_LIST[0];
+          return(
+            <div key={k} style={{padding:14,background:"#f9fafb",borderRadius:10,marginBottom:10,border:"1px solid #e5e7eb"}}>
+              {/* 学校名 */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <span style={{fontWeight:700,fontSize:15}}>{a.schoolName}</span>
+                <button onClick={()=>setEditSchool({key:k,schoolName:a.schoolName,a})} style={{fontSize:10,padding:"2px 8px",borderRadius:6,border:"1px solid #93c5fd",background:"#dbeafe",color:"#1d4ed8",cursor:"pointer"}}>学校名変更</button>
               </div>
-              {/* パスコード変更フォーム */}
-              {editPass[a.schoolName]?.open && (
-                <div style={{marginTop:8,background:"#f0f9ff",borderRadius:8,padding:"10px 12px",border:"1px solid #bae6fd"}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#0369a1",marginBottom:6}}>新しいパスコードを入力</div>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                    <input
-                      type="password"
-                      value={editPass[a.schoolName]?.value||""}
-                      onChange={e=>setEditPass(p=>({...p,[a.schoolName]:{...p[a.schoolName],value:e.target.value,error:""}}))}
-                      placeholder="4文字以上"
-                      style={{flex:1,border:"2px solid #7dd3fc",borderRadius:7,padding:"6px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}
-                      onKeyDown={e=>e.key==="Enter"&&changePasscode(a.schoolName)}
-                    />
-                    <button onClick={()=>changePasscode(a.schoolName)}
-                      style={{background:"#0369a1",border:"none",color:"#fff",borderRadius:7,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                      保存
-                    </button>
-                    <button onClick={()=>closeEditPass(a.schoolName)}
-                      style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"6px 10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                      ✕
-                    </button>
+              {editSchool?.key===k&&(
+                <div style={{background:"#eff6ff",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"1px solid #93c5fd"}}>
+                  <div style={{display:"flex",gap:6}}>
+                    <input defaultValue={a.schoolName} id={`school-${k}`} style={{flex:1,border:"2px solid #93c5fd",borderRadius:7,padding:"6px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                    <button onClick={()=>changeSchool(a,document.getElementById(`school-${k}`).value)} style={{background:"#1d4ed8",border:"none",color:"#fff",borderRadius:7,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>保存</button>
+                    <button onClick={()=>setEditSchool(null)} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"6px 10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>✕</button>
                   </div>
-                  {editPass[a.schoolName]?.error && (
-                    <div style={{fontSize:11,color:"#ef4444",marginTop:4}}>{editPass[a.schoolName].error}</div>
-                  )}
+                </div>
+              )}
+
+              {/* スポーツ・ID */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,fontSize:13}}>
+                <span style={{background:"#dcfce7",color:"#15803d",borderRadius:99,padding:"2px 10px",fontWeight:700,fontSize:12}}>{sp.icon} {sp.label}</span>
+                <button onClick={()=>setEditSport({key:k,sport:a.sport,a})} style={{fontSize:10,padding:"2px 8px",borderRadius:6,border:"1px solid #86efac",background:"#f0fdf4",color:"#15803d",cursor:"pointer"}}>スポーツ変更</button>
+                <span style={{color:"#9ca3af",fontSize:12}}>ID: {a.userId}</span>
+              </div>
+
+              {/* スポーツ変更 */}
+              {editSport?.key===k&&(
+                <div style={{background:"#f0fdf4",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"1px solid #86efac"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#15803d",marginBottom:6}}>スポーツを変更</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+                    {SPORT_LIST.map(s=>{const ac=editSport.sport===s.value;return<button key={s.value} onClick={()=>setEditSport(p=>({...p,sport:s.value}))} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:ac?800:500,border:`2px solid ${ac?"#15803d":"#e5e7eb"}`,background:ac?"#dcfce7":"#fff",color:ac?"#15803d":"#6b7280",cursor:"pointer"}}>{s.icon} {s.label}</button>;})}
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>changeSport(a,editSport.sport)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:7,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>保存</button>
+                    <button onClick={()=>setEditSport(null)} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"6px 10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>キャンセル</button>
+                  </div>
+                </div>
+              )}
+
+              {/* パスコード */}
+              <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,marginBottom:8}}>
+                <span style={{color:"#6b7280"}}>パスコード：</span>
+                <span style={{fontWeight:700,fontFamily:"monospace",fontSize:13}}>{showPass[k]?a.passcode:"●".repeat(a.passcode?.length||4)}</span>
+                <button onClick={()=>setShowPass(p=>({...p,[k]:!p[k]}))} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#6b7280",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{showPass[k]?"隠す":"表示"}</button>
+                <button onClick={()=>setEditPass(p=>({...p,[k]:p[k]?.open?{open:false,value:"",error:""}:{open:true,value:"",error:""}}))} style={{background:"#dbeafe",border:"1px solid #93c5fd",color:"#1d4ed8",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>変更</button>
+              </div>
+              {editPass[k]?.open&&(
+                <div style={{background:"#eff6ff",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"1px solid #93c5fd"}}>
+                  <div style={{display:"flex",gap:6}}>
+                    <input type="password" value={editPass[k]?.value||""} onChange={e=>setEditPass(p=>({...p,[k]:{...p[k],value:e.target.value,error:""}}))} placeholder="新パスコード（4文字以上）" style={{flex:1,border:"2px solid #93c5fd",borderRadius:7,padding:"6px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+                    <button onClick={()=>changePasscode(a,editPass[k]?.value)} style={{background:"#1d4ed8",border:"none",color:"#fff",borderRadius:7,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>保存</button>
+                    <button onClick={()=>setEditPass(p=>({...p,[k]:{open:false,value:"",error:""}}))} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"6px 10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>✕</button>
+                  </div>
+                  {editPass[k]?.error&&<div style={{fontSize:11,color:"#ef4444",marginTop:4}}>{editPass[k].error}</div>}
+                </div>
+              )}
+
+              {/* 削除ボタン */}
+              {confirm?.key===k?(
+                <div style={{background:"#fef2f2",borderRadius:8,padding:"10px 12px",border:"1px solid #fecaca"}}>
+                  <div style={{fontSize:12,color:"#7f1d1d",fontWeight:700,marginBottom:8}}>{confirm.mode==="full"?"⚠️ アカウント＋Firestoreデータをすべて削除します。元に戻せません。":"⚠️ アカウントのみ削除します。"}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>setConfirm(null)} style={{flex:1,background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:"pointer"}}>キャンセル</button>
+                    <button onClick={()=>confirm.mode==="full"?deleteAll(a):deleteAccount(a)} disabled={deleting} style={{flex:1,background:"#dc2626",border:"none",color:"#fff",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:deleting?"not-allowed":"pointer"}}>{deleting?"削除中...":"削除確定"}</button>
+                  </div>
+                </div>
+              ):(
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>setConfirm({key:k,mode:"account"})} style={{flex:1,background:"#fff7ed",border:"1px solid #fed7aa",color:"#c2410c",borderRadius:7,padding:"6px",fontWeight:700,fontSize:11,cursor:"pointer"}}>アカウントのみ削除</button>
+                  <button onClick={()=>setConfirm({key:k,mode:"full"})} style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",color:"#dc2626",borderRadius:7,padding:"6px",fontWeight:700,fontSize:11,cursor:"pointer"}}>🗑 完全削除</button>
                 </div>
               )}
             </div>
-
-            {/* 確認ダイアログ */}
-            {confirm?.school===a.schoolName?(
-              <div style={{background:"#fef2f2",borderRadius:8,padding:"10px 12px",border:"1px solid #fecaca"}}>
-                <div style={{fontSize:12,color:"#7f1d1d",fontWeight:700,marginBottom:8}}>
-                  {confirm.mode==="full"
-                    ? "⚠️ ドリル・保存済みメニューを含む全データが完全に削除されます。元に戻せません。"
-                    : "⚠️ アカウントのみ削除します。Firestoreのデータは残ります。"}
-                </div>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>setConfirm(null)} disabled={deleting} style={{flex:1,background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:"pointer"}}>キャンセル</button>
-                  <button onClick={()=>confirm.mode==="full"?deleteAll(a.schoolName):deleteAccountOnly(a.schoolName)} disabled={deleting}
-                    style={{flex:1,background:"#dc2626",border:"none",color:"#fff",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:deleting?"not-allowed":"pointer"}}>
-                    {deleting?"削除中...":"削除確定"}
-                  </button>
-                </div>
-              </div>
-            ):(
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setConfirm({school:a.schoolName,mode:"account"})}
-                  style={{flex:1,background:"#fff7ed",border:"1px solid #fed7aa",color:"#c2410c",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                  アカウントのみ削除
-                </button>
-                <button onClick={()=>setConfirm({school:a.schoolName,mode:"full"})}
-                  style={{flex:1,background:"#fef2f2",border:"1px solid #fecaca",color:"#dc2626",borderRadius:7,padding:"7px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
-                  🗑 完全削除
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-
-        <div style={{marginTop:10,background:"#f9fafb",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#6b7280"}}>
-          <b>アカウントのみ削除</b>：ログインできなくなる。データは残る。再登録で復活可能。<br/>
-          <b>完全削除</b>：アカウント＋Firestoreのドリル・メニューを全削除。元に戻せない。
+          );
+        })}
+        <div style={{marginTop:8,background:"#f9fafb",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#6b7280"}}>
+          <b>アカウントのみ削除</b>：ログイン不可。データは残る。再登録で復活可。<br/>
+          <b>完全削除</b>：アカウント＋Firestoreを全削除。元に戻せない。
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Main App ────────────────────────────────────────────────────────────────
-function App() {
-  const [dbReady, setDbReady]  = useState(!!window._dbReady);
-  const [syncing, setSyncing]  = useState(false);
-  // ログイン状態
-  const savedSession = (() => { try { return JSON.parse(localStorage.getItem("st_session")||"null"); } catch { return null; } })();
-  const [loggedIn,    setLoggedIn]    = useState(!!savedSession);
-  const [schoolName,  setSchoolName]  = useState(savedSession?.schoolName||"");
-  const [isAdmin,     setIsAdmin]     = useState(false);
-  const [tab,setTab]           = useState("builder");
-  const [drills,setDrills]     = useState([]);
-  const [menus,setMenus]       = useState([]);
-  const [menuName,setMenuName] = useState("今日の練習");
-  const [selected,setSelected] = useState([]);
+// ─── カテゴリ管理タブ ────────────────────────────────────────────────────────
+function CatsTab({cats,onAdd,onDelete}){
+  const [newCat,setNewCat]=useState("");
+  return(
+    <div>
+      <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>カテゴリ管理</div>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>ドリルのカテゴリを追加・削除できます</div>
+      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden",marginBottom:16}}>
+        {cats.map((c,i)=>(
+          <div key={c} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:i<cats.length-1?"1px solid #f3f4f6":"none"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{width:12,height:12,borderRadius:3,background:getCatColor(c,cats),display:"inline-block"}}></span>
+              <span style={{fontWeight:600,fontSize:14}}>{c}</span>
+            </div>
+            <button onClick={()=>onDelete(c)} style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#ef4444",borderRadius:7,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>削除</button>
+          </div>
+        ))}
+      </div>
+      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#6b7280",marginBottom:10}}>カテゴリを追加</div>
+        <div style={{display:"flex",gap:10}}>
+          <input value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="カテゴリ名を入力" onKeyDown={e=>{if(e.key==="Enter"&&newCat.trim()){onAdd(newCat.trim());setNewCat("");}}}
+            style={{flex:1,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+          <Btn onClick={()=>{if(newCat.trim()){onAdd(newCat.trim());setNewCat("");}}} disabled={!newCat.trim()}>追加</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 対象管理タブ ────────────────────────────────────────────────────────────
+function TargetsTab({targets,onAdd,onDelete}){
+  const [newT,setNewT]=useState("");
+  return(
+    <div>
+      <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>対象グループ管理</div>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>学年・性別以外の独自グループを追加・削除できます</div>
+      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden",marginBottom:16}}>
+        {targets.length===0?<div style={{padding:24,textAlign:"center",color:"#9ca3af"}}>カスタム対象グループなし</div>:targets.map((t,i)=>(
+          <div key={t} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:i<targets.length-1?"1px solid #f3f4f6":"none"}}>
+            <span style={{fontWeight:600,fontSize:14}}>👥 {t}</span>
+            <button onClick={()=>onDelete(t)} style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#ef4444",borderRadius:7,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>削除</button>
+          </div>
+        ))}
+      </div>
+      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#6b7280",marginBottom:10}}>グループを追加</div>
+        <div style={{display:"flex",gap:10}}>
+          <input value={newT} onChange={e=>setNewT(e.target.value)} placeholder="例: Aチーム、上級班" onKeyDown={e=>{if(e.key==="Enter"&&newT.trim()){onAdd(newT.trim());setNewT("");}}}
+            style={{flex:1,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+          <Btn onClick={()=>{if(newT.trim()){onAdd(newT.trim());setNewT("");}}} disabled={!newT.trim()}>追加</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── タイマー実行 ─────────────────────────────────────────────────────────────
+function TimerTab({menus,cats}){
+  const [phase,setPhase]=useState("select");
+  const [selMenu,setSelMenu]=useState(null);
+  const [drillList,setDrillList]=useState([]);
+  const [idx,setIdx]=useState(0);
+  const [sec,setSec]=useState(0);
+  const [paused,setPaused]=useState(false);
+  const timerRef=useRef(null);
+  const beepCtx=useRef(null);
+
+  const flatten=drills=>{
+    const rows=groupRows(drills);const res=[];
+    rows.forEach(row=>row.forEach(item=>{
+      if(item.timeUnit==="lap") res.push({...item,displayTime:`${(item.lapsPerSet||1)*(item.sets||1)}周`,isLap:true,durationSec:0});
+      else res.push({...item,displayTime:`${item.duration}分`,isLap:false,durationSec:(item.duration||0)*60});
+    }));
+    return res;
+  };
+  const startMenu=m=>{const list=flatten(m.drills);setSelMenu(m);setDrillList(list);setIdx(0);setPhase("ready");};
+  const startTimer=()=>{const d=drillList[idx];setSec(d.isLap?0:d.durationSec);setPaused(false);setPhase("running");};
+  const beep=(f,d)=>{try{if(!beepCtx.current)beepCtx.current=new(window.AudioContext||window.webkitAudioContext)();const ctx=beepCtx.current;const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;g.gain.setValueAtTime(.3,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+d);o.start();o.stop(ctx.currentTime+d);}catch(e){}};
+  const goNext=()=>{clearInterval(timerRef.current);if(idx>=drillList.length-1){setPhase("done");return;}const n=idx+1;setIdx(n);setSec(drillList[n].isLap?0:drillList[n].durationSec);setPaused(false);beep(660,.2);};
+  const goPrev=()=>{clearInterval(timerRef.current);if(idx<=0)return;const p=idx-1;setIdx(p);setSec(drillList[p].isLap?0:drillList[p].durationSec);setPaused(false);};
+  const reset=()=>{clearInterval(timerRef.current);setPhase("select");setSelMenu(null);setDrillList([]);setIdx(0);setPaused(false);};
+  useEffect(()=>{
+    if(phase!=="running"||paused)return;
+    const d=drillList[idx];if(d?.isLap||sec<=0){if(sec<=0&&!d?.isLap)beep(880,.3);return;}
+    timerRef.current=setInterval(()=>setSec(s=>{if(s<=1){clearInterval(timerRef.current);beep(880,.3);return 0;}if(s===11)beep(440,.1);return s-1;}),1000);
+    return()=>clearInterval(timerRef.current);
+  },[phase,paused,idx]);
+
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const drill=drillList[idx];
+  const ac=drill?getCatColor(drill.category,cats):"#15803d";
+  const ratio=drill?.durationSec>0?sec/drill.durationSec:0;
+  const lastTen=!drill?.isLap&&sec<=10&&sec>0;
+  const done2=!drill?.isLap&&sec===0;
+
+  if(phase==="select")return(<div>
+    <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>練習メニューを選択</div>
+    <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>実行したい保存済みメニューを選んでください</div>
+    {menus.length===0?<div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>保存済みメニューがありません</div>
+    :menus.map(m=><div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+        <div><div style={{fontWeight:800,fontSize:15,marginBottom:3}}>{m.name}</div><div style={{fontSize:12,color:"#9ca3af"}}>{m.createdAt} ／ {m.drills.length}ドリル ／ {m.total}分</div></div>
+        <button onClick={()=>startMenu(m)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"10px 18px",fontWeight:800,fontSize:14,cursor:"pointer",whiteSpace:"nowrap"}}>▶ 開始</button>
+      </div>
+    </div>)}
+  </div>);
+
+  if(phase==="ready")return(<div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
+    <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>練習メニュー</div>
+    <div style={{fontWeight:900,fontSize:20,color:"#15803d",marginBottom:20}}>{selMenu.name}</div>
+    <div style={{background:"#f9fafb",borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
+      {drillList.map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:i<drillList.length-1?"1px solid #f3f4f6":"none"}}><span style={{fontSize:12,color:"#9ca3af",width:20,textAlign:"right"}}>{i+1}</span><span style={{fontSize:13,fontWeight:600,flex:1}}>{d.name}</span><span style={{fontSize:12,color:"#6b7280"}}>{d.displayTime}</span></div>)}
+    </div>
+    <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+      <button onClick={reset} style={{background:"#f3f4f6",border:"none",color:"#374151",borderRadius:10,padding:"12px 24px",fontWeight:700,fontSize:15,cursor:"pointer"}}>← 戻る</button>
+      <button onClick={startTimer} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>▶ スタート</button>
+    </div>
+  </div>);
+
+  if(phase==="done")return(<div style={{background:"#fff",borderRadius:16,padding:32,boxShadow:"0 2px 12px #0002",textAlign:"center"}}>
+    <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+    <div style={{fontWeight:900,fontSize:22,color:"#15803d",marginBottom:8}}>練習完了！</div>
+    <div style={{fontSize:14,color:"#6b7280",marginBottom:24}}>{selMenu.name}　お疲れ様でした</div>
+    <button onClick={reset} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer"}}>← メニューに戻る</button>
+  </div>);
+
+  return(<div>
+    <div style={{background:"#fff",borderRadius:12,padding:"12px 16px",marginBottom:12,boxShadow:"0 1px 6px #0001"}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,fontWeight:700,color:"#6b7280"}}>{selMenu.name}</span><span style={{fontSize:12,color:"#6b7280"}}>{idx+1}/{drillList.length}</span></div>
+      <div style={{background:"#e5e7eb",borderRadius:99,height:8,overflow:"hidden"}}><div style={{background:"#15803d",height:"100%",width:`${(idx/drillList.length)*100}%`,transition:"width .4s"}}/></div>
+    </div>
+    <div style={{background:"#fff",borderRadius:16,padding:24,boxShadow:"0 2px 12px #0002",marginBottom:12,textAlign:"center"}}>
+      <span style={{display:"inline-block",padding:"3px 14px",borderRadius:99,fontSize:12,fontWeight:700,background:ac+"22",color:ac,border:`1px solid ${ac}44`,marginBottom:8}}>{drill.category}</span>
+      <div style={{fontWeight:900,fontSize:22,color:"#111",marginBottom:8}}>{drill.name}</div>
+      {formatTarget(drill.grade,drill.gender)!=="全体"&&<div style={{marginBottom:8}}><span style={{fontSize:12,background:"#e0f2fe",color:"#0369a1",border:"1px solid #7dd3fc",borderRadius:99,padding:"2px 10px",fontWeight:700}}>👥{formatTarget(drill.grade,drill.gender)}</span></div>}
+      {drill.isLap?(
+        <div style={{padding:"20px 0"}}><div style={{fontSize:48,marginBottom:8}}>🏃</div><div style={{fontWeight:900,fontSize:28,color:ac,marginBottom:4}}>{drill.displayTime}</div><div style={{fontSize:13,color:"#6b7280"}}>完了したら「次へ」を押してください</div></div>
+      ):(
+        <div style={{padding:"12px 0"}}>
+          <div style={{position:"relative",width:160,height:160,margin:"0 auto 8px"}}>
+            <svg width="160" height="160" style={{position:"absolute",top:0,left:0,transform:"rotate(-90deg)"}}>
+              <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
+              <circle cx="80" cy="80" r="70" fill="none" stroke={done2?"#9ca3af":lastTen?"#ef4444":ac} strokeWidth="10" strokeDasharray={`${2*Math.PI*70}`} strokeDashoffset={`${2*Math.PI*70*(1-ratio)}`} strokeLinecap="round" style={{transition:"stroke-dashoffset .9s linear,stroke .3s"}}/>
+            </svg>
+            <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <div style={{fontWeight:900,fontSize:36,color:done2?"#9ca3af":lastTen?"#ef4444":"#111",fontVariantNumeric:"tabular-nums"}}>{fmt(sec)}</div>
+              <div style={{fontSize:11,color:"#9ca3af"}}>{drill.displayTime}</div>
+            </div>
+          </div>
+          {done2&&<div style={{fontSize:13,color:"#ef4444",fontWeight:700,marginBottom:4}}>⏰ 時間終了！次へ進んでください</div>}
+        </div>
+      )}
+      {drill.description&&<div style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#6b7280",marginTop:4}}>{drill.description}</div>}
+    </div>
+    <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",display:"flex",gap:10,justifyContent:"center",alignItems:"center"}}>
+      <button onClick={goPrev} disabled={idx===0} style={{background:"#f3f4f6",border:"none",color:idx===0?"#d1d5db":"#374151",borderRadius:10,width:52,height:52,fontSize:20,cursor:idx===0?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⏮</button>
+      {!drill.isLap&&<button onClick={()=>{clearInterval(timerRef.current);setPaused(p=>!p);}} style={{background:paused?"#15803d":"#f3f4f6",border:"none",color:paused?"#fff":"#374151",borderRadius:10,width:64,height:64,fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{paused?"▶":"⏸"}</button>}
+      <button onClick={goNext} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:10,width:52,height:52,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 10px #15803d44"}}>⏭</button>
+    </div>
+    <div style={{textAlign:"center",marginTop:12}}><button onClick={reset} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>練習を終了する</button></div>
+  </div>);
+}
+
+// ─── メインアプリ ─────────────────────────────────────────────────────────────
+function App(){
+  const [dbReady,setDbReady] = useState(!!window._dbReady);
+  const [syncing,setSyncing] = useState(false);
+  const session = getSession();
+  const [loggedIn,setLoggedIn]   = useState(!!session);
+  const [account,setAccount]     = useState(session);
+  const [isAdmin,setIsAdmin]     = useState(false);
+
+  const sport      = account?.sport||"softball_tennis";
+  const schoolName = account?.schoolName||"";
+  const sportInfo  = SPORT_LIST.find(s=>s.value===sport)||SPORT_LIST[0];
+  const isST = sport==="softball_tennis"||sport==="hardball_tennis";
+
+  const [tab,setTab]             = useState("builder");
+  const [drills,setDrills]       = useState([]);
+  const [menus,setMenus]         = useState([]);
+  // カテゴリと対象はFirestoreで管理
+  const [cats,setCats]           = useState(isST ? ST_CATEGORIES : []);
+  const [customTargets,setCustomTargets] = useState([]);
+  const [menuName,setMenuName]   = useState("今日の練習");
+  const [selected,setSelected]   = useState([]);
   const [filterCat,setFilterCat] = useState("すべて");
   const [filterQ,setFilterQ]     = useState("");
   const [drillModal,setDrillModal] = useState(null);
-  const [form,setForm]             = useState(EMPTY_FORM);
-  const [printDate,setPrintDate]   = useState(()=>new Date().toISOString().slice(0,10));
+  const [form,setForm]           = useState({name:"",category:cats[0]||"",minutesPerSet:5,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:""});
+  const [printDate,setPrintDate] = useState(()=>new Date().toISOString().slice(0,10));
   const initializedRef = useRef(false);
 
-  // DB 準備完了を待つ
   useEffect(()=>{
-    if(window._dbReady){ setDbReady(true); return; }
+    if(window._dbReady){setDbReady(true);return;}
     const h=()=>setDbReady(true);
     window.addEventListener("dbReady",h);
     return()=>window.removeEventListener("dbReady",h);
   },[]);
 
-  // Firestore リアルタイム購読
   useEffect(()=>{
-    if(!dbReady) return;
-    const db = window._db;
-
-    // drills 購読
-    const unsubDrills = db.collection("drills").onSnapshot(snap=>{
-      const data = snap.docs.map(d=>d.data());
-      if(data.length===0 && !initializedRef.current){
+    if(!dbReady||!loggedIn)return;
+    const db2=window._db;
+    const u1=db2.collection("drills").onSnapshot(snap=>{
+      const data=snap.docs.map(d=>d.data());
+      if(data.length===0&&!initializedRef.current){
         initializedRef.current=true;
-        DEFAULT_DRILLS.forEach(drill=>fsSetDrill(drill));
-      } else {
-        initializedRef.current=true;
-        setDrills(data.sort((a,b)=>a.id.localeCompare(b.id)));
-      }
+        if(isST) ST_DEFAULT_DRILLS.forEach(d=>fsSet("drills",d.id,d));
+      } else { initializedRef.current=true; setDrills(data.sort((a,b)=>a.id.localeCompare(b.id))); }
     });
-
-    // menus 購読
-    const unsubMenus = db.collection("menus").onSnapshot(snap=>{
-      const data = snap.docs.map(d=>d.data());
-      setMenus(data.sort((a,b)=>b.createdAt?.localeCompare?.(a.createdAt)||0));
+    const u2=db2.collection("menus").onSnapshot(snap=>{
+      setMenus(snap.docs.map(d=>d.data()).sort((a,b)=>b.createdAt?.localeCompare?.(a.createdAt)||0));
     });
-
-    return()=>{ unsubDrills(); unsubMenus(); };
-  },[dbReady]);
-
-  const newUid = () => "u"+(Date.now()+Math.random()).toString(36);
-
-  // ── Drill CRUD ──
-  const openNew  = () => { setForm({...EMPTY_FORM}); setDrillModal("new"); };
-  const openEdit = d => { const sts=d.sets||1; setForm({...d,minutesPerSet:d.minutesPerSet||d.duration||5,sets:sts,setLabels:autoSetLabels(sts),grade:d.grade||"",gender:d.gender||"",timeUnit:d.timeUnit||"min",lapsPerSet:d.lapsPerSet||1}); setDrillModal(d); };
-  const saveDrill = async () => {
-    if(!form.name.trim()) return;
-    setSyncing(true);
-    const mps=Math.max(1,Number(form.minutesPerSet)||1), sts=Math.max(1,Number(form.sets)||1);
-    const setLabels=Array.from({length:sts},(_,i)=>form.setLabels&&form.setLabels[i]||"");
-    const isLap=form.timeUnit==="lap";
-    const computed={...form,minutesPerSet:mps,sets:sts,setLabels,lapsPerSet:Number(form.lapsPerSet)||1,duration:isLap?0:mps*sts};
-    if(drillModal==="new"){
-      const nd={...computed,id:"d"+Date.now()};
-      await fsSetDrill(nd);
-    } else {
-      const upd={...drillModal,...computed};
-      await fsSetDrill(upd);
-      setSelected(p=>p.map(s=>s.id===upd.id?{...s,...upd}:s));
-    }
-    setSyncing(false);
-    setDrillModal(null);
-  };
-  const deleteDrill = async id => {
-    if(!confirm("このドリルを削除しますか？"))return;
-    setSyncing(true);
-    await fsDeleteDrill(id);
-    setSelected(p=>p.filter(s=>s.id!==id));
-    setSyncing(false);
-  };
-
-  // ── Builder ──
-  const addToMenu    = drill => setSelected(p=>[...p,{...drill,uid:newUid(),groupId:null}]);
-  const addRest      = mins  => setSelected(p=>[...p,{uid:newUid(),id:null,name:"休憩",category:"休憩",duration:mins,minutesPerSet:mins,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"",groupId:null}]);
-  const removeFromMenu = uid => setSelected(p=>p.filter(s=>s.uid!==uid));
-  const addToGroup   = drill => {
-    setSelected(p=>{
-      if(!p.length) return[...p,{...drill,uid:newUid(),groupId:null}];
-      const last=p[p.length-1];
-      const gid=last.groupId||("g"+Date.now());
-      const updated=last.groupId?p:[...p.slice(0,-1),{...last,groupId:gid}];
-      return[...updated,{...drill,uid:newUid(),groupId:gid}];
+    const u3=db2.collection("settings").doc("categories").onSnapshot(snap=>{
+      if(snap.exists){ const d=snap.data(); setCats(d.list||[]); }
+      else if(isST){ setCats(ST_CATEGORIES); fsSet("settings","categories",{list:ST_CATEGORIES}); }
     });
-  };
-  const detachFromGroup = uid => setSelected(p=>p.map(s=>s.uid===uid?{...s,groupId:null}:s));
-  const totalMin = selected.filter(s=>s.timeUnit!=="lap").reduce((s,d)=>s+(d.duration||0),0);
+    const u4=db2.collection("settings").doc("targets").onSnapshot(snap=>{
+      if(snap.exists) setCustomTargets(snap.data().list||[]);
+    });
+    return()=>{u1();u2();u3();u4();};
+  },[dbReady,loggedIn]);
 
-  // ── Save / Load / Delete Menu ──
-  const saveMenu = async () => {
-    if(!selected.length) return;
+  const newUid=()=>"u"+(Date.now()+Math.random()).toString(36);
+  const addCat=async c=>{ if(!c||cats.includes(c))return; const n=[...cats,c]; setCats(n); await fsSet("settings","categories",{list:n}); };
+  const delCat=async c=>{ const n=cats.filter(x=>x!==c); setCats(n); await fsSet("settings","categories",{list:n}); };
+  const addTarget=async t=>{ if(!t||customTargets.includes(t))return; const n=[...customTargets,t]; setCustomTargets(n); await fsSet("settings","targets",{list:n}); };
+  const delTarget=async t=>{ const n=customTargets.filter(x=>x!==t); setCustomTargets(n); await fsSet("settings","targets",{list:n}); };
+
+  // Drill CRUD
+  const openNew=()=>{ setForm({name:"",category:cats[0]||"",minutesPerSet:5,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:""}); setDrillModal("new"); };
+  const openEdit=d=>{ const sts=d.sets||1; setForm({...d,minutesPerSet:d.minutesPerSet||d.duration||5,sets:sts,setLabels:autoSetLabels(sts,d.setLabels),grade:d.grade||"",gender:d.gender||"",timeUnit:d.timeUnit||"min",lapsPerSet:d.lapsPerSet||1}); setDrillModal(d); };
+  const autoSetLabels=(n,existing=[])=>existing.length===n?existing:Array.from({length:n},(_,i)=>existing[i]||"");
+  const saveDrill=async()=>{
+    if(!form.name.trim())return;
     setSyncing(true);
+    const mps=Math.max(1,Number(form.minutesPerSet)||1),sts=Math.max(1,Number(form.sets)||1);
+    const isLap=form.timeUnit==="lap"&&(form.category==="ランメニュー"||form.category==="外周");
+    const computed={...form,minutesPerSet:mps,sets:sts,setLabels:autoSetLabels(sts,form.setLabels),lapsPerSet:Number(form.lapsPerSet)||1,duration:isLap?0:mps*sts};
+    if(drillModal==="new"){ await fsSet("drills","d"+Date.now(),{...computed,id:"d"+Date.now()}); }
+    else{ const upd={...drillModal,...computed}; await fsSet("drills",upd.id,upd); setSelected(p=>p.map(s=>s.id===upd.id?{...s,...upd}:s)); }
+    setSyncing(false); setDrillModal(null);
+  };
+  const deleteDrill=async id=>{ if(!confirm("このドリルを削除しますか？"))return; setSyncing(true); await fsDel("drills",id); setSelected(p=>p.filter(s=>s.id!==id)); setSyncing(false); };
+
+  // Builder
+  const addToMenu=d=>setSelected(p=>[...p,{...d,uid:newUid(),groupId:null}]);
+  const addRest=m=>setSelected(p=>[...p,{uid:newUid(),id:null,name:"休憩",category:"休憩",duration:m,minutesPerSet:m,sets:1,setLabels:[],grade:"",gender:"",timeUnit:"min",lapsPerSet:1,description:"",groupId:null}]);
+  const removeFromMenu=uid=>setSelected(p=>p.filter(s=>s.uid!==uid));
+  const addToGroup=d=>setSelected(p=>{
+    if(!p.length)return[...p,{...d,uid:newUid(),groupId:null}];
+    const last=p[p.length-1];const gid=last.groupId||("g"+Date.now());
+    const upd=last.groupId?p:[...p.slice(0,-1),{...last,groupId:gid}];
+    return[...upd,{...d,uid:newUid(),groupId:gid}];
+  });
+  const detach=uid=>setSelected(p=>p.map(s=>s.uid===uid?{...s,groupId:null}:s));
+  const totalMin=selected.filter(s=>s.timeUnit!=="lap").reduce((s,d)=>s+(d.duration||0),0);
+
+  const saveMenu=async()=>{
+    if(!selected.length)return; setSyncing(true);
     const m={id:"m"+Date.now(),name:menuName,drills:selected,total:totalMin,createdAt:new Date().toLocaleDateString("ja-JP")};
-    await fsSetMenu(m);
-    setSyncing(false);
-    alert(`「${menuName}」を保存しました！`);
+    await fsSet("menus",m.id,m); setSyncing(false); alert(`「${menuName}」を保存しました！`);
   };
-  const loadSavedMenu = m => { setSelected(m.drills.map(d=>({...d,uid:newUid()}))); setMenuName(m.name); setTab("builder"); };
-  const deleteMenu = async id => {
-    if(!confirm("このメニューを削除しますか？"))return;
-    setSyncing(true);
-    await fsDeleteMenu(id);
-    setSyncing(false);
-  };
+  const loadSavedMenu=m=>{setSelected(m.drills.map(d=>({...d,uid:newUid()})));setMenuName(m.name);setTab("builder");};
+  const deleteMenu=async id=>{if(!confirm("削除しますか？"))return;setSyncing(true);await fsDel("menus",id);setSyncing(false);};
 
-  // ── Print ──
-  const printMenu = () => {
-    const catCol={"ウォームアップ":"#f59e0b","外周":"#84cc16","基礎打ち":"#3b82f6","球出し練習":"#8b5cf6","ラリー":"#06b6d4","サーブ・レシーブ":"#ec4899","ゲーム形式":"#22c55e","フィジカル":"#ef4444","クールダウン":"#14b8a6","休憩":"#78716c"};
-    const lblCol={"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"};
-    const rows=groupRows(selected);
-    const rowCount=rows.length;
-    const fs=rowCount<=8?11:rowCount<=12?10:rowCount<=16?9:8;
-    const pad=rowCount<=8?"6px 8px":rowCount<=12?"4px 7px":"3px 6px";
+  // Print
+  const printMenu=()=>{
+    const rows=groupRows(selected);const rc=rows.length;
+    const fs=rc<=8?11:rc<=12?10:rc<=16?9:8;const pad=rc<=8?"6px 8px":rc<=12?"4px 7px":"3px 6px";
     const dateLabel=new Date(printDate+"T00:00:00").toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric"});
     const renderCell=item=>{
-      const c=catCol[item.category]||"#6b7280";
+      const c=getCatColor(item.category,cats);
       const tgt=formatTarget(item.grade,item.gender);
       const tgtH=tgt!=="全体"?`<span style="display:inline-block;padding:1px 6px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc">👥${tgt}</span>`:"";
-      const lblH=(item.setLabels||[]).filter(l=>l).map((l,si)=>{const lc=lblCol[l]||"#6b7280";return`<span style="display:inline-block;margin:1px 2px;padding:0 5px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:${lc}22;color:${lc};border:1px solid ${lc}55">${si+1}.${l}</span>`;}).join("");
+      const lblH=(item.setLabels||[]).filter(l=>l).map((l,si)=>`<span style="display:inline-block;margin:1px 2px;padding:0 5px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:${c}22;color:${c};border:1px solid ${c}55">${si+1}.${l}</span>`).join("");
       const isRest=item.category==="休憩";
       return`<div style="padding:${pad}"><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:2px"><span style="display:inline-block;padding:0 6px;border-radius:99px;font-size:${fs-1}px;font-weight:700;background:${c}22;color:${c};border:1px solid ${c}44">${item.category}</span>${tgtH}</div><div style="font-weight:${isRest?600:700};font-size:${fs+1}px;color:${isRest?"#78716c":"#111"};margin-bottom:1px">${isRest?"☕ ":""}${item.name}</div>${lblH?`<div style="margin-bottom:1px">${lblH}</div>`:""}<div style="font-size:${fs-1}px;color:#6b7280">${timeLabelStr(item)}</div>${item.description?`<div style="font-size:${fs-2}px;color:#9ca3af;margin-top:1px">${item.description}</div>`:""}</div>`;
     };
     let rn=0;
-    const trows=rows.map(row=>{
-      rn++;
-      const bg=rn%2===0?"#f8f8f8":"#fff";
-      if(row.length===1){
-        const item=row[0];const isRest=item.category==="休憩";
-        return`<tr style="background:${isRest?"#f5f5f4":bg}"><td class="num">${isRest?"—":rn}</td><td>${renderCell(item)}</td></tr>`;
-      }
-      const n=row.length;
-      const cols=row.map((item,ci)=>`<td style="vertical-align:top;border-right:${ci<n-1?"1px solid #d1fae5":"none"}">${renderCell(item)}</td>`).join("");
+    const trows=rows.map(row=>{rn++;const bg=rn%2===0?"#f8f8f8":"#fff";
+      if(row.length===1){const item=row[0];const isRest=item.category==="休憩";return`<tr style="background:${isRest?"#f5f5f4":bg}"><td class="num">${isRest?"—":rn}</td><td>${renderCell(item)}</td></tr>`;}
+      const n=row.length;const cols=row.map((item,ci)=>`<td style="vertical-align:top;border-right:${ci<n-1?"1px solid #d1fae5":"none"}">${renderCell(item)}</td>`).join("");
       return`<tr style="background:${bg};border-top:2px solid #84cc16"><td class="num" style="vertical-align:middle"><div>${rn}</div><div style="font-size:7px;color:#84cc16;font-weight:700;margin-top:1px">分割</div></td><td colspan="1" style="padding:0"><table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup>${Array(n).fill(0).map(()=>`<col style="width:${(100/n).toFixed(2)}%">`).join("")}</colgroup><tr>${cols}</tr></table></td></tr>`;
     }).join("");
-    const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${menuName}</title><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%}body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;background:#fff;font-size:${fs}px}.wrap{padding:8mm 8mm 6mm;max-width:100%}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}.school{font-size:13px;font-weight:700;color:#15803d}.title{font-size:15px;font-weight:900;color:#111}.meta{font-size:10px;color:#6b7280}table.main{width:100%;border-collapse:collapse;border:1px solid #d1d5db;table-layout:fixed}table.main th{background:#15803d;color:#fff;padding:5px 8px;font-size:${fs}px;font-weight:700;text-align:left}table.main th.num{width:28px;text-align:center}table.main td{vertical-align:top;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}table.main td.num{width:28px;padding:4px 2px;text-align:center;color:#6b7280;font-weight:700;font-size:${fs}px;border-right:1px solid #e5e7eb;vertical-align:middle}table.main tr:last-child td{border-bottom:none}@media print{html,body{width:100%;height:100%}.wrap{padding:5mm 6mm 4mm}@page{size:A4 portrait;margin:0}}</style></head><body><div class="wrap"><div class="header"><div><div class="school">🎾 ${schoolName}</div><div class="title">${menuName}</div></div><div class="meta" style="text-align:right">${dateLabel}</div></div><table class="main"><thead><tr><th class="num">#</th><th>練習内容</th></tr></thead><tbody>${trows}</tbody></table></div><script>window.onload=()=>window.print();<\/script></body></html>`;
+    const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${menuName}</title><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%}body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;background:#fff;font-size:${fs}px}.wrap{padding:8mm 8mm 6mm}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}.school{font-size:13px;font-weight:700;color:#15803d}.title{font-size:15px;font-weight:900;color:#111}.meta{font-size:10px;color:#6b7280}table.main{width:100%;border-collapse:collapse;border:1px solid #d1d5db;table-layout:fixed}table.main th{background:#15803d;color:#fff;padding:5px 8px;font-size:${fs}px;font-weight:700;text-align:left}table.main th.num{width:28px;text-align:center}table.main td{vertical-align:top;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}table.main td.num{width:28px;padding:4px 2px;text-align:center;color:#6b7280;font-weight:700;font-size:${fs}px;border-right:1px solid #e5e7eb;vertical-align:middle}table.main tr:last-child td{border-bottom:none}@media print{html,body{width:100%;height:100%}.wrap{padding:5mm 6mm 4mm}@page{size:A4 portrait;margin:0}}</style></head><body><div class="wrap"><div class="header"><div><div class="school">${sportInfo.icon} ${schoolName}</div><div class="title">${menuName}</div></div><div class="meta" style="text-align:right">${dateLabel}</div></div><table class="main"><thead><tr><th class="num">#</th><th>練習内容</th></tr></thead><tbody>${trows}</tbody></table></div><script>window.onload=()=>window.print();<\/script></body></html>`;
     const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();}
   };
 
   const visibleDrills=drills.filter(d=>(filterCat==="すべて"||d.category===filterCat)&&(d.name.includes(filterQ)||(d.description||"").includes(filterQ)));
   const rows=groupRows(selected);
+  const isRunMenu=isST&&form.category==="ランメニュー";
 
-  // 管理者画面
-  if (isAdmin) return <AdminScreen onLogout={()=>setIsAdmin(false)}/>;
+  if(!loggedIn) return<LoginScreen onLogin={a=>{setAccount(a);setLoggedIn(true);}} onAdmin={()=>setIsAdmin(true)}/>;
+  if(isAdmin) return<AdminScreen onLogout={()=>setIsAdmin(false)}/>;
+  if(!dbReady) return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,color:"#15803d"}}><div style={{fontSize:40}}>{sportInfo.icon}</div><div style={{fontWeight:800,fontSize:18}}>接続中...</div></div>;
 
-  // ログイン画面
-  if (!loggedIn) return <LoginScreen onLogin={name=>{ setSchoolName(name); setLoggedIn(true); }} onAdmin={()=>setIsAdmin(true)}/>;
-
-  // ローディング画面
-  if(!dbReady||drills.length===0&&!initializedRef.current){
-    return(
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,color:"#15803d"}}>
-        <div style={{fontSize:40}}>🎾</div>
-        <div style={{fontWeight:800,fontSize:18}}>ソフトテニス 練習メニュービルダー</div>
-        <div style={{fontSize:13,color:"#6b7280"}}>Firebaseに接続中...</div>
-      </div>
-    );
-  }
-
-  return (
+  return(
     <div style={{minHeight:"100vh",background:"#f0fdf4",fontFamily:"inherit"}}>
-      {/* Header */}
       <div style={{background:"linear-gradient(135deg,#15803d,#166534)",padding:"16px 16px 0",color:"#fff"}}>
         <div style={{maxWidth:700,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
-              <div style={{fontSize:11,letterSpacing:3,opacity:.7,marginBottom:2}}>🎾 SOFT TENNIS</div>
+              <div style={{fontSize:11,letterSpacing:2,opacity:.7,marginBottom:2}}>{sportInfo.icon} {sportInfo.label}</div>
               <div style={{fontWeight:900,fontSize:20}}>{schoolName}</div>
               <div style={{fontSize:11,opacity:.7,marginBottom:14}}>練習メニュービルダー</div>
             </div>
@@ -894,13 +747,12 @@ function App() {
                 <span className="sync-dot" style={{background:syncing?"#fbbf24":"#4ade80"}}></span>
                 {syncing?"保存中...":"同期済み"}
               </div>
-              <button onClick={()=>{localStorage.removeItem("st_session");setLoggedIn(false);setSchoolName("");}}
-                style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>ログアウト</button>
+              <button onClick={()=>{clearSession();setLoggedIn(false);setAccount(null);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>ログアウト</button>
             </div>
           </div>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
-            {[["builder","📋 作成"],["drills","🗂 ドリル"],["rest","☕ 休憩"],["timer","▶️ 実行"],["saved","💾 保存済み"]].map(([key,label])=>(
-              <button key={key} onClick={()=>setTab(key)} style={{padding:"8px 12px",borderRadius:"8px 8px 0 0",border:"none",background:tab===key?"#f0fdf4":"transparent",color:tab===key?"#15803d":"#ffffffaa",fontWeight:tab===key?800:500,fontSize:12,cursor:"pointer"}}>{label}</button>
+            {[["builder","📋 作成"],["drills","🗂 ドリル"],["rest","☕ 休憩"],["timer","▶️ 実行"],["cats","🏷 カテゴリ"],["targets","👥 対象"],["saved","💾 保存済み"]].map(([k,l])=>(
+              <button key={k} onClick={()=>setTab(k)} style={{padding:"7px 10px",borderRadius:"7px 7px 0 0",border:"none",background:tab===k?"#f0fdf4":"transparent",color:tab===k?"#15803d":"#ffffffaa",fontWeight:tab===k?800:500,fontSize:11,cursor:"pointer"}}>{l}</button>
             ))}
           </div>
         </div>
@@ -908,191 +760,167 @@ function App() {
 
       <div style={{maxWidth:700,margin:"0 auto",padding:"20px 16px 80px"}}>
 
-        {/* ══ BUILDER ══ */}
-        {tab==="builder"&&(
-          <div>
-            <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",marginBottom:16}}>
-              <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
-                <input value={menuName} onChange={e=>setMenuName(e.target.value)} style={{flex:1,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:15,fontWeight:700,fontFamily:"inherit",outline:"none"}}/>
-                <Btn onClick={saveMenu} disabled={!selected.length||syncing}>{syncing?"保存中...":"保存"}</Btn>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#6b7280",whiteSpace:"nowrap"}}>📅 練習日</span>
-                <input type="date" value={printDate} onChange={e=>setPrintDate(e.target.value)}
-                  style={{border:"2px solid #e5e7eb",borderRadius:8,padding:"6px 10px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#374151"}}/>
-              </div>
+        {/* ══ 作成 ══ */}
+        {tab==="builder"&&(<div>
+          <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",marginBottom:16}}>
+            <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
+              <input value={menuName} onChange={e=>setMenuName(e.target.value)} style={{flex:1,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:15,fontWeight:700,fontFamily:"inherit",outline:"none"}}/>
+              <Btn onClick={saveMenu} disabled={!selected.length||syncing}>{syncing?"保存中...":"保存"}</Btn>
             </div>
-            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",marginBottom:16,overflow:"hidden"}}>
-              <div style={{background:"#15803d",color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontWeight:800}}>今日のメニュー</span>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:13,opacity:.85}}>合計 <b>{totalMin}</b> 分</span>
-                  {selected.length>0&&<button onClick={printMenu} style={{background:"#fff",border:"none",color:"#15803d",borderRadius:7,padding:"4px 12px",fontWeight:700,fontSize:12,cursor:"pointer"}}>🖨️ 印刷/PDF</button>}
-                </div>
-              </div>
-              {selected.length===0?(
-                <div style={{padding:"32px 16px",textAlign:"center",color:"#9ca3af",fontSize:14}}>下のドリル一覧から追加してください</div>
-              ):(
-                <div>
-                  {rows.map((row,ri)=>{
-                    const isGroup=row.length>1;
-                    return(
-                      <div key={ri} style={{borderBottom:"1px solid #f3f4f6"}}>
-                        {isGroup&&<div style={{background:"#f0fdf4",borderBottom:"1px dashed #bbf7d0",padding:"3px 12px",fontSize:11,color:"#15803d",fontWeight:700}}>⑂ 同時進行（{row.length}グループ）</div>}
-                        <div style={{display:"flex"}}>
-                          <div style={{width:32,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",borderRight:"1px solid #f3f4f6",color:"#9ca3af",fontSize:12,fontWeight:700}}>{ri+1}</div>
-                          <div style={{flex:1,display:"flex",minWidth:0}}>
-                            {row.map((item,ci)=>(
-                              <div key={item.uid} style={{flex:1,minWidth:0,borderLeft:ci>0?"1px dashed #d1fae5":undefined,padding:"10px 12px"}}>
-                                <DrillCard item={item}/>
-                                <div style={{display:"flex",gap:4,marginTop:6}}>
-                                  {isGroup&&<button onClick={()=>detachFromGroup(item.uid)} style={{fontSize:10,padding:"2px 7px",borderRadius:6,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#6b7280",cursor:"pointer"}}>切り離す</button>}
-                                  <button onClick={()=>removeFromMenu(item.uid)} style={{fontSize:10,padding:"2px 7px",borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer"}}>削除</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div style={{padding:"10px 16px",borderTop:"1px solid #f3f4f6",display:"flex",justifyContent:"flex-end"}}>
-                    <Btn small variant="ghost" onClick={()=>setSelected([])}>すべてクリア</Btn>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
-              <div style={{padding:"12px 16px 0",borderBottom:"1px solid #f3f4f6"}}>
-                <div style={{fontWeight:800,marginBottom:10}}>ドリルを追加</div>
-                <input value={filterQ} onChange={e=>setFilterQ(e.target.value)} placeholder="🔍 ドリル名で検索" style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"7px 12px",fontSize:13,marginBottom:10,fontFamily:"inherit",outline:"none"}}/>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingBottom:10}}>
-                  {["すべて",...CATEGORIES].map(c=>(
-                    <button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>
-                  ))}
-                </div>
-              </div>
-              <div style={{maxHeight:360,overflowY:"auto"}}>
-                {visibleDrills.length===0?(<div style={{padding:24,textAlign:"center",color:"#9ca3af",fontSize:14}}>該当なし</div>)
-                :visibleDrills.map(d=>(
-                  <div key={d.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"10px 14px",borderBottom:"1px solid #f9fafb"}}>
-                    <DrillCard item={d}/>
-                    <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-                      <button onClick={()=>addToMenu(d)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}} title="単独で追加">+</button>
-                      {selected.length>0&&<button onClick={()=>addToGroup(d)} style={{background:"#fff7ed",border:"1px solid #fed7aa",color:"#c2410c",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="直前の行と同時進行">⑂</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{padding:"8px 14px",background:"#f9fafb",borderTop:"1px solid #f3f4f6",fontSize:11,color:"#6b7280",display:"flex",gap:16}}>
-                <span><b style={{color:"#15803d"}}>＋</b> 単独で追加</span>
-                <span><b style={{color:"#c2410c"}}>⑂</b> 直前の行と同時進行</span>
-              </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,fontWeight:700,color:"#6b7280",whiteSpace:"nowrap"}}>📅 練習日</span>
+              <input type="date" value={printDate} onChange={e=>setPrintDate(e.target.value)} style={{border:"2px solid #e5e7eb",borderRadius:8,padding:"6px 10px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#374151"}}/>
             </div>
           </div>
-        )}
-
-        {/* ══ DRILLS ══ */}
-        {tab==="drills"&&(
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <span style={{fontWeight:800,fontSize:16}}>ドリル一覧（{drills.length}件）</span>
-              <Btn small onClick={openNew}>＋ 新規登録</Btn>
+          <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",marginBottom:16,overflow:"hidden"}}>
+            <div style={{background:"#15803d",color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:800}}>今日のメニュー</span>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:13,opacity:.85}}>合計 <b>{totalMin}</b> 分</span>
+                {selected.length>0&&<button onClick={printMenu} style={{background:"#fff",border:"none",color:"#15803d",borderRadius:7,padding:"4px 12px",fontWeight:700,fontSize:12,cursor:"pointer"}}>🖨️ 印刷/PDF</button>}
+              </div>
             </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-              {["すべて",...CATEGORIES].map(c=>(
-                <button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>
-              ))}
-            </div>
-            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
-              {visibleDrills.length===0?(<div style={{padding:32,textAlign:"center",color:"#9ca3af"}}>ドリルがありません</div>)
-              :visibleDrills.map((d,i)=>(
-                <div key={d.id} style={{padding:"12px 16px",borderBottom:i<visibleDrills.length-1?"1px solid #f3f4f6":"none"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                    <DrillCard item={d}/>
-                    <div style={{display:"flex",gap:6,flexShrink:0}}>
-                      <Btn small variant="ghost" onClick={()=>openEdit(d)}>編集</Btn>
-                      <Btn small variant="danger" onClick={()=>deleteDrill(d.id)}>削除</Btn>
-                    </div>
+            {selected.length===0?<div style={{padding:"32px 16px",textAlign:"center",color:"#9ca3af",fontSize:14}}>下のドリル一覧から追加してください</div>:(
+              <div>
+                <SortableList items={selected} onReorder={setSelected} renderItem={(item,i)=>(
+                  <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderBottom:"1px solid #f3f4f6",background:"#fff",cursor:"grab"}}>
+                    <span style={{color:"#d1d5db",fontSize:18,flexShrink:0,paddingTop:2}}>⠿</span>
+                    <span style={{color:"#9ca3af",fontSize:12,width:20,flexShrink:0,paddingTop:3}}>{i+1}</span>
+                    <DC item={item} cats={cats}/>
+                    <button onClick={()=>removeFromMenu(item.uid)} style={{background:"#fef2f2",border:"none",color:"#ef4444",borderRadius:6,width:28,height:28,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
                   </div>
-                  {d.description&&<div style={{fontSize:13,color:"#6b7280",lineHeight:1.5,marginTop:4}}>{d.description}</div>}
+                )}/>
+                <div style={{padding:"10px 16px",borderTop:"1px solid #f3f4f6",display:"flex",justifyContent:"flex-end"}}>
+                  <Btn small variant="ghost" onClick={()=>setSelected([])}>すべてクリア</Btn>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
+            <div style={{padding:"12px 16px 0",borderBottom:"1px solid #f3f4f6"}}>
+              <div style={{fontWeight:800,marginBottom:10}}>ドリルを追加</div>
+              <input value={filterQ} onChange={e=>setFilterQ(e.target.value)} placeholder="🔍 ドリル名で検索" style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"7px 12px",fontSize:13,marginBottom:10,fontFamily:"inherit",outline:"none"}}/>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingBottom:10}}>
+                {["すべて",...cats].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>)}
+              </div>
+            </div>
+            <div style={{maxHeight:360,overflowY:"auto"}}>
+              {visibleDrills.length===0?<div style={{padding:24,textAlign:"center",color:"#9ca3af",fontSize:14}}>該当なし</div>
+              :visibleDrills.map(d=>(
+                <div key={d.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"10px 14px",borderBottom:"1px solid #f9fafb"}}>
+                  <DC item={d} cats={cats}/>
+                  <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                    <button onClick={()=>addToMenu(d)} style={{background:"#15803d",border:"none",color:"#fff",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}} title="単独で追加">+</button>
+                    {selected.length>0&&<button onClick={()=>addToGroup(d)} style={{background:"#fff7ed",border:"1px solid #fed7aa",color:"#c2410c",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="直前の行と同時進行">⑂</button>}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* ══ REST ══ */}
-        {tab==="rest"&&(
-          <div>
-            <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>休憩を追加</div>
-            <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>メニューに挿入したい休憩時間を選んでください</div>
-            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden",marginBottom:16}}>
-              {[5,10,15,20].map((mins,i,arr)=>(
-                <div key={mins} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid #f3f4f6":"none"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontSize:22}}>☕</span>
-                    <div><div style={{fontWeight:700,fontSize:15}}>休憩</div><div style={{fontSize:13,color:"#6b7280"}}>{mins}分</div></div>
-                  </div>
-                  <button onClick={()=>{addRest(mins);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"7px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
-                </div>
-              ))}
-            </div>
-            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",padding:16}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#6b7280",marginBottom:10}}>カスタム時間</div>
-              <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                <input type="number" id="cr" defaultValue={3} min={1} max={60} style={{width:80,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"inherit"}}/>
-                <span style={{color:"#6b7280",fontWeight:600}}>分</span>
-                <button onClick={()=>{const v=Math.max(1,Math.min(60,Number(document.getElementById("cr").value)||1));addRest(v);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"9px 20px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
-              </div>
+            <div style={{padding:"8px 14px",background:"#f9fafb",borderTop:"1px solid #f3f4f6",fontSize:11,color:"#6b7280",display:"flex",gap:16}}>
+              <span><b style={{color:"#15803d"}}>＋</b> 単独で追加</span>
+              <span><b style={{color:"#c2410c"}}>⑂</b> 直前の行と同時進行</span>
             </div>
           </div>
-        )}
+        </div>)}
 
-        {/* ══ TIMER ══ */}
-        {tab==="timer"&&<TimerTab menus={menus}/>}
-
-        {/* ══ SAVED ══ */}
-        {tab==="saved"&&(
-          <div>
-            <div style={{fontWeight:800,fontSize:16,marginBottom:14}}>保存済みメニュー（{menus.length}件）</div>
-            {menus.length===0?(<div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>まだ保存されたメニューはありません</div>)
-            :menus.map(m=>(
-              <div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
+        {/* ══ ドリル ══ */}
+        {tab==="drills"&&(<div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontWeight:800,fontSize:16}}>ドリル一覧（{drills.length}件）</span>
+            <Btn small onClick={openNew}>＋ 新規登録</Btn>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {["すべて",...cats].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:filterCat===c?700:400,border:filterCat===c?"2px solid #15803d":"2px solid #e5e7eb",background:filterCat===c?"#dcfce7":"#fff",color:filterCat===c?"#15803d":"#6b7280",cursor:"pointer"}}>{c}</button>)}
+          </div>
+          <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden"}}>
+            {visibleDrills.length===0?<div style={{padding:32,textAlign:"center",color:"#9ca3af"}}>ドリルがありません</div>
+            :visibleDrills.map((d,i)=>(
+              <div key={d.id} style={{padding:"12px 16px",borderBottom:i<visibleDrills.length-1?"1px solid #f3f4f6":"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>{m.name}</div>
-                    <div style={{fontSize:12,color:"#9ca3af",marginBottom:8}}>{m.createdAt} ／ {m.drills.length}ドリル ／ 合計{m.total}分</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{m.drills.map((d,i)=><span key={i} style={{fontSize:11,background:"#f3f4f6",borderRadius:6,padding:"2px 8px",color:"#374151"}}>{d.name}</span>)}</div>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                    <Btn small onClick={()=>loadSavedMenu(m)}>読み込む</Btn>
-                    <Btn small variant="danger" onClick={()=>deleteMenu(m.id)}>削除</Btn>
+                  <DC item={d} cats={cats}/>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    <Btn small variant="ghost" onClick={()=>openEdit(d)}>編集</Btn>
+                    <Btn small variant="danger" onClick={()=>deleteDrill(d.id)}>削除</Btn>
                   </div>
                 </div>
+                {d.description&&<div style={{fontSize:13,color:"#6b7280",lineHeight:1.5,marginTop:4}}>{d.description}</div>}
               </div>
             ))}
           </div>
-        )}
+        </div>)}
+
+        {/* ══ 休憩 ══ */}
+        {tab==="rest"&&(<div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:6}}>休憩を追加</div>
+          <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>メニューに挿入する休憩時間を選んでください</div>
+          <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",overflow:"hidden",marginBottom:16}}>
+            {[5,10,15,20].map((m,i,arr)=>(
+              <div key={m} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid #f3f4f6":"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:22}}>☕</span><div><div style={{fontWeight:700,fontSize:15}}>休憩</div><div style={{fontSize:13,color:"#6b7280"}}>{m}分</div></div></div>
+                <button onClick={()=>{addRest(m);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"7px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
+              </div>
+            ))}
+          </div>
+          <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 6px #0001",padding:16}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#6b7280",marginBottom:10}}>カスタム時間</div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <input type="number" id="cr" defaultValue={3} min={1} max={60} style={{width:80,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:15,fontWeight:700,textAlign:"center",outline:"none",fontFamily:"inherit"}}/>
+              <span style={{color:"#6b7280",fontWeight:600}}>分</span>
+              <button onClick={()=>{const v=Math.max(1,Math.min(60,Number(document.getElementById("cr").value)||1));addRest(v);setTab("builder");}} style={{background:"#78716c",border:"none",color:"#fff",borderRadius:8,padding:"9px 20px",fontWeight:700,fontSize:14,cursor:"pointer"}}>＋ 追加</button>
+            </div>
+          </div>
+        </div>)}
+
+        {/* ══ タイマー ══ */}
+        {tab==="timer"&&<TimerTab menus={menus} cats={cats}/>}
+
+        {/* ══ カテゴリ ══ */}
+        {tab==="cats"&&<CatsTab cats={cats} onAdd={addCat} onDelete={delCat}/>}
+
+        {/* ══ 対象 ══ */}
+        {tab==="targets"&&<TargetsTab targets={customTargets} onAdd={addTarget} onDelete={delTarget}/>}
+
+        {/* ══ 保存済み ══ */}
+        {tab==="saved"&&(<div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:14}}>保存済みメニュー（{menus.length}件）</div>
+          {menus.length===0?<div style={{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#9ca3af",boxShadow:"0 1px 6px #0001"}}>まだ保存されたメニューはありません</div>
+          :menus.map(m=>(
+            <div key={m.id} style={{background:"#fff",borderRadius:12,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 6px #0001",borderLeft:"4px solid #15803d"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>{m.name}</div>
+                  <div style={{fontSize:12,color:"#9ca3af",marginBottom:8}}>{m.createdAt} ／ {m.drills.length}ドリル ／ 合計{m.total}分</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{m.drills.map((d,i)=><span key={i} style={{fontSize:11,background:"#f3f4f6",borderRadius:6,padding:"2px 8px",color:"#374151"}}>{d.name}</span>)}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                  <Btn small onClick={()=>loadSavedMenu(m)}>読み込む</Btn>
+                  <Btn small variant="danger" onClick={()=>deleteMenu(m.id)}>削除</Btn>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>)}
       </div>
 
-      {/* ══ MODAL ══ */}
+      {/* ══ ドリル登録モーダル ══ */}
       {drillModal!==null&&(
         <Modal title={drillModal==="new"?"ドリルを新規登録":"ドリルを編集"} onClose={()=>setDrillModal(null)}>
-          <FInput label="ドリル名 *" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="例: クロスラリー"/>
-          <FSelect label="カテゴリ" value={form.category} onChange={v=>setForm(p=>({...p,category:v}))} options={CATEGORIES}/>
+          <FInput label="ドリル名 *" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="例: 基礎練習"/>
+          <FSelect label="カテゴリ" value={form.category} onChange={v=>setForm(p=>({...p,category:v}))} options={cats.length?cats:["カテゴリを先に追加してください"]}/>
+
+          {/* 時間設定 */}
           <div style={{marginBottom:14}}>
             <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>時間設定</div>
-            {form.category==="外周"&&(
+            {isRunMenu&&(
               <div style={{display:"flex",gap:6,marginBottom:10}}>
-                {[["min","分"],["lap","周"]].map(([val,label])=>{const active=(form.timeUnit||"min")===val;return<button key={val} onClick={()=>setForm(p=>({...p,timeUnit:val}))} style={{padding:"5px 18px",borderRadius:99,fontSize:13,fontWeight:active?800:500,border:`2px solid ${active?"#84cc16":"#e5e7eb"}`,background:active?"#f7fee7":"#fff",color:active?"#4d7c0f":"#6b7280",cursor:"pointer"}}>{label}で入力</button>;})}
+                {[["min","分"],["lap","周"]].map(([v,l])=>{const a=(form.timeUnit||"min")===v;return<button key={v} onClick={()=>setForm(p=>({...p,timeUnit:v}))} style={{padding:"5px 18px",borderRadius:99,fontSize:13,fontWeight:a?800:500,border:`2px solid ${a?"#84cc16":"#e5e7eb"}`,background:a?"#f7fee7":"#fff",color:a?"#4d7c0f":"#6b7280",cursor:"pointer"}}>{l}で入力</button>;})}
               </div>
             )}
-            {form.category==="外周"&&form.timeUnit==="lap"?(
+            {isRunMenu&&form.timeUnit==="lap"?(
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <input type="number" value={form.lapsPerSet||1} onChange={e=>setForm(p=>({...p,lapsPerSet:e.target.value}))} min={1} max={100} style={{width:70,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:14,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
                 <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>周 ×</span>
-                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return<button key={n} onClick={()=>setForm(p=>({...p,sets:n,setLabels:autoSetLabels(n)}))} style={{width:36,height:38,border:`2px solid ${a?"#84cc16":"#e5e7eb"}`,borderRadius:8,background:a?"#f7fee7":"#fff",color:a?"#4d7c0f":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
+                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return<button key={n} onClick={()=>setForm(p=>({...p,sets:n}))} style={{width:36,height:38,border:`2px solid ${a?"#84cc16":"#e5e7eb"}`,borderRadius:8,background:a?"#f7fee7":"#fff",color:a?"#4d7c0f":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
                 <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>セット</span>
                 <span style={{background:"#f7fee7",color:"#4d7c0f",borderRadius:8,padding:"6px 12px",fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>＝{(Number(form.lapsPerSet)||1)*form.sets}周</span>
               </div>
@@ -1100,29 +928,37 @@ function App() {
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <input type="number" value={form.minutesPerSet} onChange={e=>setForm(p=>({...p,minutesPerSet:e.target.value}))} min={1} max={120} style={{width:70,border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 10px",fontSize:14,outline:"none",fontFamily:"inherit",textAlign:"center"}}/>
                 <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>分 ×</span>
-                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return<button key={n} onClick={()=>setForm(p=>({...p,sets:n,setLabels:autoSetLabels(n)}))} style={{width:36,height:38,border:`2px solid ${a?"#15803d":"#e5e7eb"}`,borderRadius:8,background:a?"#dcfce7":"#fff",color:a?"#15803d":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
+                <div style={{display:"flex",gap:4}}>{SET_OPTIONS.map(n=>{const a=form.sets===n;return<button key={n} onClick={()=>setForm(p=>({...p,sets:n,setLabels:autoSetLabels(n,form.setLabels)}))} style={{width:36,height:38,border:`2px solid ${a?"#15803d":"#e5e7eb"}`,borderRadius:8,background:a?"#dcfce7":"#fff",color:a?"#15803d":"#6b7280",fontWeight:a?800:500,fontSize:14,cursor:"pointer"}}>{n}</button>;})}</div>
                 <span style={{color:"#6b7280",fontWeight:600,whiteSpace:"nowrap"}}>セット</span>
                 <span style={{background:"#dcfce7",color:"#15803d",borderRadius:8,padding:"6px 12px",fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>＝{(Number(form.minutesPerSet)||0)*form.sets}分</span>
               </div>
             )}
-            {form.sets>=2&&(
-              <div style={{marginTop:12,background:"#f9fafb",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:11,fontWeight:700,color:"#9ca3af"}}>各セットの内容</span>
-                  <span style={{fontSize:11,color:"#15803d",fontWeight:700}}>✓ 自動設定</span>
-                </div>
+            {/* ソフトテニスのみセットラベル自動表示 */}
+            {isST&&form.sets>=2&&form.timeUnit!=="lap"&&(()=>{
+              const presets={2:["フォア","バック"],3:["フォア","バック","回り込み"],4:["フォア","バック","フォア","バック"],6:["フォア","バック","回り込み","フォア","バック","回り込み"]};
+              const lbls=presets[form.sets]||[];
+              const lblColors={"フォア":"#3b82f6","バック":"#ec4899","回り込み":"#f59e0b"};
+              if(!lbls.length)return null;
+              return(<div style={{marginTop:12,background:"#f9fafb",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{fontSize:11,fontWeight:700,color:"#9ca3af"}}>各セットの内容</span><span style={{fontSize:11,color:"#15803d",fontWeight:700}}>✓ 自動設定</span></div>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {(form.setLabels||[]).map((val,i)=>{const c=SET_LABEL_COLOR[val]||"#6b7280";return(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:12,fontWeight:700,color:"#fff",background:"#6b7280",borderRadius:99,width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
-                      <span style={{padding:"4px 16px",borderRadius:99,fontSize:13,fontWeight:700,background:c+"22",color:c,border:`2px solid ${c}55`}}>{val}</span>
-                    </div>
-                  );})}
-                </div>
-              </div>
-            )}
+                  {lbls.map((val,i)=>{const c=lblColors[val]||"#6b7280";return(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,fontWeight:700,color:"#fff",background:"#6b7280",borderRadius:99,width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span><span style={{padding:"4px 16px",borderRadius:99,fontSize:13,fontWeight:700,background:c+"22",color:c,border:`2px solid ${c}55`}}>{val}</span></div>);})}</div>
+              </div>);
+            })()}
           </div>
-          <TargetSelector grade={form.grade||""} gender={form.gender||""} onGradeChange={v=>setForm(p=>({...p,grade:v}))} onGenderChange={v=>setForm(p=>({...p,gender:v}))}/>
+
+          <TargetSelector grade={form.grade||""} gender={form.gender||""} onGrade={v=>setForm(p=>({...p,grade:v}))} onGender={v=>setForm(p=>({...p,gender:v}))}/>
+
+          {/* カスタム対象グループ */}
+          {customTargets.length>0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:8}}>カスタム対象グループ（任意）</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {customTargets.map(t=>{const a=form.customTarget===t;return<button key={t} onClick={()=>setForm(p=>({...p,customTarget:a?"":t}))} style={{padding:"5px 14px",borderRadius:99,fontSize:13,fontWeight:a?800:500,border:`2px solid ${a?"#0369a1":"#e5e7eb"}`,background:a?"#e0f2fe":"#fff",color:a?"#0369a1":"#6b7280",cursor:"pointer"}}>{t}</button>;})}
+              </div>
+            </div>
+          )}
+
           <div style={{marginBottom:14}}>
             <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>説明（任意）</div>
             <textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="練習内容や注意点など" style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,minHeight:72,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
