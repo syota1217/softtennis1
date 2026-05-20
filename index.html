@@ -214,16 +214,10 @@ function LoginScreen({onLogin,onAdmin}){
     const pc=passcode.trim();
     if(!uid){setError("IDを入力してください");return;}
     if(!pc){setError("パスコードを入力してください");return;}
-    // 管理者チェック（最優先）
     if(uid===ADMIN_ID){
-      if(pc===ADMIN_CODE){
-        alert("管理者認証OK！管理者画面に移動します");
-        onAdmin();return;
-      }
-      else{setError("管理者パスコードが違います。入力値:"+pc);return;}
+      if(pc===ADMIN_CODE){onAdmin();return;}
+      else{setError("管理者パスコードが違います");return;}
     }
-    setError("管理者IDが一致しません。入力値:["+uid+"] 期待値:["+ADMIN_ID+"]");
-    // 一般ユーザーチェック
     const accounts=getAccounts();
     const found=accounts.find(a=>a.userId===uid);
     if(!found){setError("IDが見つかりません");return;}
@@ -293,9 +287,6 @@ function LoginScreen({onLogin,onAdmin}){
         {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",marginTop:-10,marginBottom:14}}>※ 半角英数字のみ使用可</div>}
 
         {error&&<div style={{background:"#fef2f2",color:"#ef4444",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:14}}>{error}</div>}
-
-        {/* デバッグ用：入力確認 */}
-        {userId.length>0&&<div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>ID入力中: [{userId}] / PW: [{passcode}]</div>}
 
         <button onClick={()=>{ if(mode==="login") handleLogin(); else handleRegister(); }}
           style={{width:"100%",background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>
@@ -745,8 +736,8 @@ function App(){
   const rows=groupRows(selected);
   const isRunMenu=isST&&form.category==="ランメニュー";
 
-  if(!loggedIn) return<LoginScreen onLogin={a=>{setAccount(a);setLoggedIn(true);}} onAdmin={()=>setIsAdmin(true)}/>;
   if(isAdmin) return<AdminScreen onLogout={()=>setIsAdmin(false)}/>;
+  if(!loggedIn) return<LoginScreen onLogin={a=>{setAccount(a);setLoggedIn(true);}} onAdmin={()=>setIsAdmin(true)}/>;
   if(!dbReady) return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,color:"#15803d"}}><div style={{fontSize:40}}>{sportInfo.icon}</div><div style={{fontWeight:800,fontSize:18}}>接続中...</div></div>;
 
   return(
