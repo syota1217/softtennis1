@@ -455,10 +455,91 @@ function TimerTab({ menus }) {
   );
 }
 
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [schoolName, setSchoolName] = useState("");
+  const [passcode,   setPasscode]   = useState("");
+  const [mode,       setMode]       = useState("login"); // login | register
+  const [error,      setError]      = useState("");
+
+  // 登録済みアカウント一覧をlocalStorageから取得
+  const getAccounts = () => { try { return JSON.parse(localStorage.getItem("st_accounts")||"[]"); } catch { return []; } };
+
+  const handleLogin = () => {
+    setError("");
+    if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
+    if (!passcode.trim())   { setError("パスコードを入力してください"); return; }
+    const accounts = getAccounts();
+    const found = accounts.find(a => a.schoolName === schoolName.trim());
+    if (!found) { setError("学校名が見つかりません。新規登録してください"); return; }
+    if (found.passcode !== passcode) { setError("パスコードが違います"); return; }
+    localStorage.setItem("st_session", JSON.stringify({ schoolName: found.schoolName }));
+    onLogin(found.schoolName);
+  };
+
+  const handleRegister = () => {
+    setError("");
+    if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
+    if (passcode.length < 4) { setError("パスコードは4文字以上で設定してください"); return; }
+    const accounts = getAccounts();
+    if (accounts.find(a => a.schoolName === schoolName.trim())) { setError("この学校名はすでに登録されています"); return; }
+    accounts.push({ schoolName: schoolName.trim(), passcode });
+    localStorage.setItem("st_accounts", JSON.stringify(accounts));
+    localStorage.setItem("st_session", JSON.stringify({ schoolName: schoolName.trim() }));
+    onLogin(schoolName.trim());
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#15803d,#166534)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:380,boxShadow:"0 20px 60px #00000033"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:40,marginBottom:8}}>🎾</div>
+          <div style={{fontWeight:900,fontSize:20,color:"#15803d"}}>ソフトテニス</div>
+          <div style={{fontWeight:900,fontSize:20,color:"#15803d",marginBottom:4}}>練習メニュービルダー</div>
+          <div style={{fontSize:12,color:"#9ca3af"}}>学校ごとにデータを管理します</div>
+        </div>
+
+        {/* タブ切り替え */}
+        <div style={{display:"flex",background:"#f3f4f6",borderRadius:10,padding:3,marginBottom:20}}>
+          {[["login","ログイン"],["register","新規登録"]].map(([m,label])=>(
+            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:mode===m?"#fff":"transparent",color:mode===m?"#15803d":"#6b7280",fontWeight:mode===m?800:500,fontSize:13,cursor:"pointer",boxShadow:mode===m?"0 1px 4px #0001":"none",transition:"all .15s"}}>{label}</button>
+          ))}
+        </div>
+
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>学校名</div>
+          <input value={schoolName} onChange={e=>setSchoolName(e.target.value)} placeholder="例: ○○市立○○中学校"
+            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
+            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>パスコード</div>
+          <input type="password" value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder={mode==="register"?"4文字以上で設定":"パスコードを入力"}
+            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
+            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
+        </div>
+
+        {error&&<div style={{background:"#fef2f2",color:"#ef4444",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:14}}>{error}</div>}
+
+        <button onClick={mode==="login"?handleLogin:handleRegister}
+          style={{width:"100%",background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>
+          {mode==="login"?"ログイン":"登録してはじめる"}
+        </button>
+
+        {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:12}}>※ パスコードは他のコーチと共有してください</div>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ────────────────────────────────────────────────────────────────
 function App() {
   const [dbReady, setDbReady]  = useState(!!window._dbReady);
   const [syncing, setSyncing]  = useState(false);
+  // ログイン状態
+  const savedSession = (() => { try { return JSON.parse(localStorage.getItem("st_session")||"null"); } catch { return null; } })();
+  const [loggedIn,    setLoggedIn]    = useState(!!savedSession);
+  const [schoolName,  setSchoolName]  = useState(savedSession?.schoolName||"");
   const [tab,setTab]           = useState("builder");
   const [drills,setDrills]     = useState([]);
   const [menus,setMenus]       = useState([]);
@@ -599,12 +680,15 @@ function App() {
       const cols=row.map((item,ci)=>`<td style="vertical-align:top;border-right:${ci<n-1?"1px solid #d1fae5":"none"}">${renderCell(item)}</td>`).join("");
       return`<tr style="background:${bg};border-top:2px solid #84cc16"><td class="num" style="vertical-align:middle"><div>${rn}</div><div style="font-size:7px;color:#84cc16;font-weight:700;margin-top:1px">分割</div></td><td colspan="1" style="padding:0"><table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup>${Array(n).fill(0).map(()=>`<col style="width:${(100/n).toFixed(2)}%">`).join("")}</colgroup><tr>${cols}</tr></table></td></tr>`;
     }).join("");
-    const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${menuName}</title><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%}body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;background:#fff;font-size:${fs}px}.wrap{padding:8mm 8mm 6mm;max-width:100%}h1{font-size:15px;font-weight:900;color:#15803d;margin-bottom:2px}.meta{font-size:10px;color:#6b7280;margin-bottom:8px}table.main{width:100%;border-collapse:collapse;border:1px solid #d1d5db;table-layout:fixed}table.main th{background:#15803d;color:#fff;padding:5px 8px;font-size:${fs}px;font-weight:700;text-align:left}table.main th.num{width:28px;text-align:center}table.main td{vertical-align:top;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}table.main td.num{width:28px;padding:4px 2px;text-align:center;color:#6b7280;font-weight:700;font-size:${fs}px;border-right:1px solid #e5e7eb;vertical-align:middle}table.main tr:last-child td{border-bottom:none}@media print{html,body{width:100%;height:100%}.wrap{padding:5mm 6mm 4mm}@page{size:A4 portrait;margin:0}}</style></head><body><div class="wrap"><h1>🎾 ${menuName}</h1><div class="meta">${dateLabel}</div><table class="main"><thead><tr><th class="num">#</th><th>練習内容</th></tr></thead><tbody>${trows}</tbody></table></div><script>window.onload=()=>window.print();<\/script></body></html>`;
+    const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${menuName}</title><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%}body{font-family:'Hiragino Kaku Gothic Pro','Meiryo',sans-serif;background:#fff;font-size:${fs}px}.wrap{padding:8mm 8mm 6mm;max-width:100%}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}.school{font-size:13px;font-weight:700;color:#15803d}.title{font-size:15px;font-weight:900;color:#111}.meta{font-size:10px;color:#6b7280}table.main{width:100%;border-collapse:collapse;border:1px solid #d1d5db;table-layout:fixed}table.main th{background:#15803d;color:#fff;padding:5px 8px;font-size:${fs}px;font-weight:700;text-align:left}table.main th.num{width:28px;text-align:center}table.main td{vertical-align:top;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}table.main td.num{width:28px;padding:4px 2px;text-align:center;color:#6b7280;font-weight:700;font-size:${fs}px;border-right:1px solid #e5e7eb;vertical-align:middle}table.main tr:last-child td{border-bottom:none}@media print{html,body{width:100%;height:100%}.wrap{padding:5mm 6mm 4mm}@page{size:A4 portrait;margin:0}}</style></head><body><div class="wrap"><div class="header"><div><div class="school">🎾 ${schoolName}</div><div class="title">${menuName}</div></div><div class="meta" style="text-align:right">${dateLabel}</div></div><table class="main"><thead><tr><th class="num">#</th><th>練習内容</th></tr></thead><tbody>${trows}</tbody></table></div><script>window.onload=()=>window.print();<\/script></body></html>`;
     const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();}
   };
 
   const visibleDrills=drills.filter(d=>(filterCat==="すべて"||d.category===filterCat)&&(d.name.includes(filterQ)||(d.description||"").includes(filterQ)));
   const rows=groupRows(selected);
+
+  // ログイン画面
+  if (!loggedIn) return <LoginScreen onLogin={name=>{ setSchoolName(name); setLoggedIn(true); }}/>;
 
   // ローディング画面
   if(!dbReady||drills.length===0&&!initializedRef.current){
@@ -625,12 +709,16 @@ function App() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
               <div style={{fontSize:11,letterSpacing:3,opacity:.7,marginBottom:2}}>🎾 SOFT TENNIS</div>
-              <div style={{fontWeight:900,fontSize:20,marginBottom:14}}>練習メニュービルダー</div>
+              <div style={{fontWeight:900,fontSize:20}}>{schoolName}</div>
+              <div style={{fontSize:11,opacity:.7,marginBottom:14}}>練習メニュービルダー</div>
             </div>
-            {/* 同期インジケーター */}
-            <div style={{display:"flex",alignItems:"center",marginTop:4,fontSize:11,opacity:.8}}>
-              <span className="sync-dot" style={{background:syncing?"#fbbf24":"#4ade80"}}></span>
-              {syncing?"保存中...":"同期済み"}
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,marginTop:4}}>
+              <div style={{display:"flex",alignItems:"center",fontSize:11,opacity:.8}}>
+                <span className="sync-dot" style={{background:syncing?"#fbbf24":"#4ade80"}}></span>
+                {syncing?"保存中...":"同期済み"}
+              </div>
+              <button onClick={()=>{localStorage.removeItem("st_session");setLoggedIn(false);setSchoolName("");}}
+                style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>ログアウト</button>
             </div>
           </div>
           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
