@@ -218,6 +218,10 @@ function LoginScreen({onLogin,onAdmin}){
       if(pc===ADMIN_CODE){onAdmin();return;}
       else{setError("管理者パスコードが違います");return;}
     }
+    // メンテナンス中はログイン不可
+    if(localStorage.getItem("club_maintenance")==="1"){
+      setError("🚧 現在メンテナンス中です。しばらくお待ちください。");return;
+    }
     const accounts=getAccounts();
     const found=accounts.find(a=>a.userId===uid);
     if(!found){setError("IDが見つかりません");return;}
@@ -306,8 +310,17 @@ function AdminScreen({onLogout}){
   const [msg,setMsg]=useState("");
   const [showPass,setShowPass]=useState({});
   const [editPass,setEditPass]=useState({});
-  const [editSport,setEditSport]=useState(null); // {key, sport}
-  const [editSchool,setEditSchool]=useState(null); // {key, schoolName}
+  const [editSport,setEditSport]=useState(null);
+  const [editSchool,setEditSchool]=useState(null);
+  const [maintenance,setMaintenance]=useState(()=>localStorage.getItem("club_maintenance")==="1");
+
+  const toggleMaintenance=()=>{
+    const next=!maintenance;
+    if(next){ localStorage.setItem("club_maintenance","1"); }
+    else { localStorage.removeItem("club_maintenance"); }
+    setMaintenance(next);
+    setMsg(next?"メンテナンスモードを開始しました":"メンテナンスモードを終了しました");
+  };
 
   const key=a=>`${a.schoolName}::${a.userId}`;
 
@@ -348,9 +361,36 @@ function AdminScreen({onLogout}){
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#7f1d1d,#991b1b)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:28,width:"100%",maxWidth:480,boxShadow:"0 20px 60px #00000033",maxHeight:"95vh",overflowY:"auto"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div><div style={{fontWeight:900,fontSize:18,color:"#dc2626"}}>🔐 管理者メニュー</div><div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>アカウント・スポーツ・学校名の管理</div></div>
           <button onClick={onLogout} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:8,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>ログアウト</button>
+        </div>
+
+        {/* メンテナンス切り替え */}
+        <div style={{background:maintenance?"#fef2f2":"#f9fafb",border:`2px solid ${maintenance?"#fca5a5":"#e5e7eb"}`,borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:14,color:maintenance?"#dc2626":"#374151"}}>
+              {maintenance?"🚧 メンテナンス中":"⚙️ メンテナンスモード"}
+            </div>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>
+              {maintenance?"一般ユーザーはログインできない状態です":"オンにすると一般ユーザーがログインできなくなります"}
+            </div>
+          </div>
+          <button onClick={toggleMaintenance} style={{
+            background:maintenance?"#dc2626":"#e5e7eb",
+            border:"none",borderRadius:99,
+            width:52,height:28,cursor:"pointer",
+            position:"relative",transition:"background .2s",flexShrink:0,
+          }}>
+            <span style={{
+              position:"absolute",top:3,
+              left:maintenance?26:3,
+              width:22,height:22,
+              background:"#fff",borderRadius:"50%",
+              transition:"left .2s",display:"block",
+              boxShadow:"0 1px 4px #0003",
+            }}/>
+          </button>
         </div>
 
         {msg&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#15803d",fontWeight:600}}>✅ {msg}</div>}
@@ -627,8 +667,8 @@ function App(){
   // カテゴリと対象はFirestoreで管理
   const [cats,setCats]           = useState(isST ? ST_CATEGORIES : []);
   const [customTargets,setCustomTargets] = useState([]);
-  const [menuName,setMenuName]   = useState("今日の練習");
-  const [selected,setSelected]   = useState([]);
+  const [menuName,setMenuName]   = useState(()=>localStorage.getItem("club_menuname")||"今日の練習");
+  const [selected,setSelected]   = useState(()=>{ try{return JSON.parse(localStorage.getItem("club_selected")||"[]");}catch{return[];} });
   const [filterCat,setFilterCat] = useState("すべて");
   const [filterQ,setFilterQ]     = useState("");
   const [drillModal,setDrillModal] = useState(null);
@@ -642,6 +682,15 @@ function App(){
     window.addEventListener("dbReady",h);
     return()=>window.removeEventListener("dbReady",h);
   },[]);
+
+  // 今日のメニュー作業内容を自動保存
+  useEffect(()=>{
+    try{ localStorage.setItem("club_selected", JSON.stringify(selected)); }catch{}
+  },[selected]);
+
+  useEffect(()=>{
+    localStorage.setItem("club_menuname", menuName);
+  },[menuName]);
 
   useEffect(()=>{
     if(!dbReady||!loggedIn)return;
@@ -738,7 +787,19 @@ function App(){
 
   if(isAdmin) return<AdminScreen onLogout={()=>{localStorage.removeItem("club_is_admin");setIsAdmin(false);}}/>;
   if(!loggedIn) return<LoginScreen onLogin={a=>{setAccount(a);setLoggedIn(true);}} onAdmin={()=>{localStorage.setItem("club_is_admin","1");setIsAdmin(true);}}/>;
-  if(!dbReady) return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,color:"#15803d"}}><div style={{fontSize:40}}>{sportInfo.icon}</div><div style={{fontWeight:800,fontSize:18}}>接続中...</div></div>;
+  // メンテナンス中は一般ユーザーをブロック
+  if(localStorage.getItem("club_maintenance")==="1") return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e293b,#0f172a)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,padding:36,width:"100%",maxWidth:400,boxShadow:"0 20px 60px #00000033",textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:16}}>🚧</div>
+        <div style={{fontWeight:900,fontSize:22,color:"#dc2626",marginBottom:8}}>メンテナンス中</div>
+        <div style={{fontSize:14,color:"#6b7280",lineHeight:1.7,marginBottom:24}}>
+          現在システムメンテナンスを行っています。<br/>しばらくお待ちください。
+        </div>
+        <button onClick={()=>{clearSession();setLoggedIn(false);setAccount(null);}} style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:10,padding:"10px 24px",fontWeight:700,fontSize:13,cursor:"pointer"}}>ログアウト</button>
+      </div>
+    </div>
+  );  if(!dbReady) return<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",gap:16,color:"#15803d"}}><div style={{fontSize:40}}>{sportInfo.icon}</div><div style={{fontWeight:800,fontSize:18}}>接続中...</div></div>;
 
   return(
     <div style={{minHeight:"100vh",background:"#f0fdf4",fontFamily:"inherit"}}>
