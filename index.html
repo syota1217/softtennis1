@@ -200,7 +200,7 @@ function SortableList({items,onReorder,renderItem}){
 
 // ─── ログイン画面 ─────────────────────────────────────────────────────────────
 function LoginScreen({onLogin,onAdmin}){
-  const ADMIN_ID="相模原青陵高校", ADMIN_CODE="12170097";
+  const ADMIN_ID="syota3523", ADMIN_CODE="12170097";
   const [mode,setMode]=useState("login");
   const [schoolName,setSchoolName]=useState("");
   const [sport,setSport]=useState("softball_tennis");
@@ -212,11 +212,11 @@ function LoginScreen({onLogin,onAdmin}){
     setError("");
     if(!userId.trim()){setError("IDを入力してください");return;}
     if(!passcode.trim()){setError("パスコードを入力してください");return;}
-    if(userId.trim()===ADMIN_ID&&passcode===ADMIN_CODE){onAdmin();return;}
+    if(userId.trim()===ADMIN_ID&&passcode.trim()===ADMIN_CODE){onAdmin();return;}
     const accounts=getAccounts();
     const found=accounts.find(a=>a.userId===userId.trim());
     if(!found){setError("IDが見つかりません");return;}
-    if(found.passcode!==passcode){setError("パスコードが違います");return;}
+    if(found.passcode!==passcode.trim()){setError("パスコードが違います");return;}
     setSession({schoolName:found.schoolName,sport:found.sport,userId:found.userId});
     onLogin(found);
   };
@@ -276,7 +276,7 @@ function LoginScreen({onLogin,onAdmin}){
           </div>
         )}
 
-        <FInput label="ID" value={userId} onChange={setUserId} placeholder={mode==="register"?"半角英数字（例: tennis2024）":"IDを入力"}/>
+        <FInput label="ID" value={userId} onChange={setUserId} placeholder={mode==="register"?"半角英数字（例: tennis2024）":"IDを入力（管理者は所定のIDを入力）"}/>
         {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",marginTop:-10,marginBottom:14}}>※ 半角英数字のみ使用可</div>}
         <FInput label="パスコード" value={passcode} onChange={setPasscode} placeholder={mode==="register"?"半角英数字・4文字以上":"パスコードを入力"} type="password"/>
         {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",marginTop:-10,marginBottom:14}}>※ 半角英数字のみ使用可</div>}
