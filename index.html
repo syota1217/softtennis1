@@ -455,16 +455,19 @@ function TimerTab({ menus }) {
 function LoginScreen({ onLogin, onAdmin }) {
   const [schoolName, setSchoolName] = useState("");
   const [passcode,   setPasscode]   = useState("");
-  const [mode,       setMode]       = useState("login"); // login | register | admin
+  const [mode,       setMode]       = useState("login"); // login | register
   const [error,      setError]      = useState("");
 
-  const ADMIN_CODE = "12170097";
+  const ADMIN_SCHOOL = "相模原青陵高校";
+  const ADMIN_CODE   = "12170097";
   const getAccounts = () => { try { return JSON.parse(localStorage.getItem("st_accounts")||"[]"); } catch { return []; } };
 
   const handleLogin = () => {
     setError("");
     if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
     if (!passcode.trim())   { setError("パスコードを入力してください"); return; }
+    // 管理者チェック（タブなし・隠し）
+    if (schoolName.trim() === ADMIN_SCHOOL && passcode === ADMIN_CODE) { onAdmin(); return; }
     const accounts = getAccounts();
     const found = accounts.find(a => a.schoolName === schoolName.trim());
     if (!found) { setError("学校名が見つかりません。新規登録してください"); return; }
@@ -489,12 +492,6 @@ function LoginScreen({ onLogin, onAdmin }) {
     onLogin(schoolName.trim());
   };
 
-  const handleAdmin = () => {
-    setError("");
-    if (passcode !== ADMIN_CODE) { setError("管理者パスコードが違います"); return; }
-    onAdmin();
-  };
-
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#15803d,#166534)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:32,width:"100%",maxWidth:380,boxShadow:"0 20px 60px #00000033"}}>
@@ -505,43 +502,32 @@ function LoginScreen({ onLogin, onAdmin }) {
           <div style={{fontSize:12,color:"#9ca3af"}}>学校ごとにデータを管理します</div>
         </div>
 
-        {/* タブ切り替え */}
+        {/* タブ切り替え（ログイン・新規登録のみ） */}
         <div style={{display:"flex",background:"#f3f4f6",borderRadius:10,padding:3,marginBottom:20}}>
-          {[["login","ログイン"],["register","新規登録"],["admin","管理者"]].map(([m,label])=>(
-            <button key={m} onClick={()=>{setMode(m);setError("");setPasscode("");}} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:mode===m?"#fff":"transparent",color:mode===m?(m==="admin"?"#dc2626":"#15803d"):"#6b7280",fontWeight:mode===m?800:500,fontSize:12,cursor:"pointer",boxShadow:mode===m?"0 1px 4px #0001":"none",transition:"all .15s"}}>{label}</button>
+          {[["login","ログイン"],["register","新規登録"]].map(([m,label])=>(
+            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:mode===m?"#fff":"transparent",color:mode===m?"#15803d":"#6b7280",fontWeight:mode===m?800:500,fontSize:13,cursor:"pointer",boxShadow:mode===m?"0 1px 4px #0001":"none",transition:"all .15s"}}>{label}</button>
           ))}
         </div>
 
-        {/* ログイン・新規登録時のみ学校名 */}
-        {mode!=="admin"&&(
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>学校名</div>
-            <input value={schoolName} onChange={e=>setSchoolName(e.target.value)} placeholder="例: ○○市立○○中学校"
-              style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
-              onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
-          </div>
-        )}
-
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>学校名</div>
+          <input value={schoolName} onChange={e=>setSchoolName(e.target.value)} placeholder="例: ○○市立○○中学校"
+            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
+            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
+        </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>
-            {mode==="admin"?"管理者パスコード":"パスコード"}
-          </div>
-          {mode==="admin"&&(
-            <div style={{background:"#fef9c3",border:"1px solid #fde047",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#854d0e",marginBottom:8}}>
-              ⚠️ パスコードは半角数字で入力してください
-            </div>
-          )}
+          <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:5}}>パスコード</div>
           <input type="password" value={passcode} onChange={e=>setPasscode(e.target.value)}
-            placeholder={mode==="admin"?"管理者パスコードを入力":mode==="register"?"4文字以上で設定":"パスコードを入力"}
-            style={{width:"100%",boxSizing:"border-box",border:`2px solid ${mode==="admin"?"#fca5a5":"#e5e7eb"}`,borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
-            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():mode==="register"?handleRegister():handleAdmin())}/>
+            placeholder={mode==="register"?"4文字以上で設定":"パスコードを入力"}
+            style={{width:"100%",boxSizing:"border-box",border:"2px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}
+            onKeyDown={e=>e.key==="Enter"&&(mode==="login"?handleLogin():handleRegister())}/>
         </div>
 
         {error&&<div style={{background:"#fef2f2",color:"#ef4444",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:14}}>{error}</div>}
 
-        <button onClick={mode==="login"?handleLogin:mode==="register"?handleRegister:handleAdmin}
-          style={{width:"100%",background:mode==="admin"?"#dc2626":"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:`0 3px 12px ${mode==="admin"?"#dc262644":"#15803d44"}`}}>
-          {mode==="login"?"ログイン":mode==="register"?"登録してはじめる":"管理者としてログイン"}
+        <button onClick={mode==="login"?handleLogin:handleRegister}
+          style={{width:"100%",background:"#15803d",border:"none",color:"#fff",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",boxShadow:"0 3px 12px #15803d44"}}>
+          {mode==="login"?"ログイン":"登録してはじめる"}
         </button>
 
         {mode==="register"&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:12}}>※ パスコードは他のコーチと共有してください</div>}
@@ -559,6 +545,22 @@ function AdminScreen({ onLogout }) {
   const [msg,      setMsg]      = useState("");
   const [showPass, setShowPass] = useState({}); // schoolName -> bool
   const togglePass = (name) => setShowPass(p=>({...p,[name]:!p[name]}));
+  const [editPass, setEditPass] = useState({}); // schoolName -> { open, value, error }
+
+  const openEditPass = (name) => setEditPass(p=>({...p,[name]:{open:true,value:"",error:""}}));
+  const closeEditPass = (name) => setEditPass(p=>({...p,[name]:{open:false,value:"",error:""}}));
+  const changePasscode = (schoolName) => {
+    const ep = editPass[schoolName];
+    if (!ep?.value || ep.value.length < 4) {
+      setEditPass(p=>({...p,[schoolName]:{...p[schoolName],error:"4文字以上で入力してください"}}));
+      return;
+    }
+    const updated = accounts.map(a => a.schoolName===schoolName ? {...a, passcode: ep.value} : a);
+    localStorage.setItem("st_accounts", JSON.stringify(updated));
+    setAccounts(updated);
+    closeEditPass(schoolName);
+    setMsg(`「${schoolName}」のパスコードを変更しました`);
+  };
 
   // アカウントのみ削除（Firestoreは残す）
   const deleteAccountOnly = (schoolName) => {
@@ -630,7 +632,38 @@ function AdminScreen({ onLogout }) {
                 <button onClick={()=>togglePass(a.schoolName)} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#6b7280",borderRadius:6,padding:"2px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
                   {showPass[a.schoolName] ? "隠す" : "表示"}
                 </button>
+                <button onClick={()=>editPass[a.schoolName]?.open ? closeEditPass(a.schoolName) : openEditPass(a.schoolName)}
+                  style={{background:"#e0f2fe",border:"1px solid #7dd3fc",color:"#0369a1",borderRadius:6,padding:"2px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                  変更
+                </button>
               </div>
+              {/* パスコード変更フォーム */}
+              {editPass[a.schoolName]?.open && (
+                <div style={{marginTop:8,background:"#f0f9ff",borderRadius:8,padding:"10px 12px",border:"1px solid #bae6fd"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#0369a1",marginBottom:6}}>新しいパスコードを入力</div>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input
+                      type="password"
+                      value={editPass[a.schoolName]?.value||""}
+                      onChange={e=>setEditPass(p=>({...p,[a.schoolName]:{...p[a.schoolName],value:e.target.value,error:""}}))}
+                      placeholder="4文字以上"
+                      style={{flex:1,border:"2px solid #7dd3fc",borderRadius:7,padding:"6px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}
+                      onKeyDown={e=>e.key==="Enter"&&changePasscode(a.schoolName)}
+                    />
+                    <button onClick={()=>changePasscode(a.schoolName)}
+                      style={{background:"#0369a1",border:"none",color:"#fff",borderRadius:7,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                      保存
+                    </button>
+                    <button onClick={()=>closeEditPass(a.schoolName)}
+                      style={{background:"#f3f4f6",border:"none",color:"#6b7280",borderRadius:7,padding:"6px 10px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                      ✕
+                    </button>
+                  </div>
+                  {editPass[a.schoolName]?.error && (
+                    <div style={{fontSize:11,color:"#ef4444",marginTop:4}}>{editPass[a.schoolName].error}</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 確認ダイアログ */}
