@@ -19,11 +19,10 @@
 <body>
 <div id="root"></div>
 
-<!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+<!-- Firebase SDK (UMD/compat版 - トラッキング防止対策) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyDit79sOjOP9CTdIv79cwgA36BivDiu6zY",
   authDomain: "softtennis-menu.firebaseapp.com",
@@ -32,14 +31,24 @@ const firebaseConfig = {
   messagingSenderId: "748877881751",
   appId: "1:748877881751:web:fdceb5645bcf828904e4d2"
 };
+firebase.initializeApp(firebaseConfig);
+const _db = firebase.firestore();
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
-
-// Firestore へのアクセス関数をグローバルに公開
-window._db = db;
-window._fs = { collection, doc, onSnapshot, setDoc, deleteDoc, getDocs };
+// Firestore アクセス関数をグローバルに公開
+window._db = _db;
 window._dbReady = true;
+
+// compat版ラッパー（既存コードと互換）
+window._fs = {
+  collection: (db, name) => db.collection(name),
+  doc: (col, id) => typeof col.doc === "function" ? col.doc(id) : _db.collection(col).doc(id),
+  onSnapshot: (ref, cb) => ref.onSnapshot(snap => {
+    cb({ docs: snap.docs.map(d => ({ data: () => d.data(), id: d.id })) });
+  }),
+  setDoc: (ref, data) => ref.set(data),
+  deleteDoc: (ref) => ref.delete(),
+  getDocs: (ref) => ref.get(),
+};
 window.dispatchEvent(new Event("dbReady"));
 </script>
 
@@ -78,23 +87,17 @@ const DEFAULT_DRILLS = [
 ];
 
 // ─── Firestore helpers ────────────────────────────────────────────────────────
-function getFS() { return { db: window._db, ...window._fs }; }
-
 async function fsSetDrill(drill) {
-  const { db, doc, setDoc, collection } = getFS();
-  await setDoc(doc(collection(db,"drills"), drill.id), drill);
+  await window._db.collection("drills").doc(drill.id).set(drill);
 }
 async function fsDeleteDrill(id) {
-  const { db, doc, deleteDoc, collection } = getFS();
-  await deleteDoc(doc(collection(db,"drills"), id));
+  await window._db.collection("drills").doc(id).delete();
 }
 async function fsSetMenu(menu) {
-  const { db, doc, setDoc, collection } = getFS();
-  await setDoc(doc(collection(db,"menus"), menu.id), menu);
+  await window._db.collection("menus").doc(menu.id).set(menu);
 }
 async function fsDeleteMenu(id) {
-  const { db, doc, deleteDoc, collection } = getFS();
-  await deleteDoc(doc(collection(db,"menus"), id));
+  await window._db.collection("menus").doc(id).delete();
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -567,13 +570,12 @@ function App() {
   // Firestore リアルタイム購読
   useEffect(()=>{
     if(!dbReady) return;
-    const {db,collection,onSnapshot}=getFS();
+    const db = window._db;
 
     // drills 購読
-    const unsubDrills = onSnapshot(collection(db,"drills"), snap=>{
+    const unsubDrills = db.collection("drills").onSnapshot(snap=>{
       const data = snap.docs.map(d=>d.data());
       if(data.length===0 && !initializedRef.current){
-        // 初回：デフォルトデータを投入
         initializedRef.current=true;
         DEFAULT_DRILLS.forEach(drill=>fsSetDrill(drill));
       } else {
@@ -583,7 +585,7 @@ function App() {
     });
 
     // menus 購読
-    const unsubMenus = onSnapshot(collection(db,"menus"), snap=>{
+    const unsubMenus = db.collection("menus").onSnapshot(snap=>{
       const data = snap.docs.map(d=>d.data());
       setMenus(data.sort((a,b)=>b.createdAt?.localeCompare?.(a.createdAt)||0));
     });
