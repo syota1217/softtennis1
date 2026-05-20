@@ -482,7 +482,11 @@ function LoginScreen({ onLogin }) {
     if (!schoolName.trim()) { setError("学校名を入力してください"); return; }
     if (passcode.length < 4) { setError("パスコードは4文字以上で設定してください"); return; }
     const accounts = getAccounts();
-    if (accounts.find(a => a.schoolName === schoolName.trim())) { setError("この学校名はすでに登録されています"); return; }
+    if (accounts.find(a => a.schoolName === schoolName.trim())) {
+      setError("この学校名はすでに登録されています。ログインタブからパスコードでログインしてください");
+      setMode("login");
+      return;
+    }
     accounts.push({ schoolName: schoolName.trim(), passcode });
     localStorage.setItem("st_accounts", JSON.stringify(accounts));
     localStorage.setItem("st_session", JSON.stringify({ schoolName: schoolName.trim() }));
