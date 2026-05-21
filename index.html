@@ -207,7 +207,13 @@ function LoginScreen({onLogin,onAdmin}){
   const [userId,setUserId]=useState("");
   const [passcode,setPasscode]=useState("");
   const [error,setError]=useState("");
-  const isMaintenance=localStorage.getItem("club_maintenance")==="1";
+  const isMaintenance=(()=>{
+    if(localStorage.getItem("club_maintenance")==="1") return true;
+    // 定期メンテナンスが有効な場合のみ自動適用
+    if(localStorage.getItem("club_scheduled_maint")==="0") return false;
+    const now=new Date();
+    return now.getDay()===3 && now.getHours()>=10 && now.getHours()<13;
+  })();
 
   const handleLogin=()=>{
     setError("");
@@ -220,7 +226,10 @@ function LoginScreen({onLogin,onAdmin}){
       else{setError("管理者パスコードが違います");return;}
     }
     // メンテナンス中はログイン不可
-    if(localStorage.getItem("club_maintenance")==="1"){
+    const now=new Date();
+    const scheduledOn=localStorage.getItem("club_scheduled_maint")!=="0";
+    const autoMaint=scheduledOn&&now.getDay()===3&&now.getHours()>=10&&now.getHours()<13;
+    if(localStorage.getItem("club_maintenance")==="1"||autoMaint){
       setError("🚧 現在メンテナンス中です。しばらくお待ちください。");return;
     }
     const accounts=getAccounts();
@@ -323,6 +332,7 @@ function AdminScreen({onLogout}){
   const [editSport,setEditSport]=useState(null);
   const [editSchool,setEditSchool]=useState(null);
   const [maintenance,setMaintenance]=useState(()=>localStorage.getItem("club_maintenance")==="1");
+  const [scheduledMaint,setScheduledMaint]=useState(()=>localStorage.getItem("club_scheduled_maint")!=="0");
 
   const toggleMaintenance=()=>{
     const next=!maintenance;
@@ -330,6 +340,13 @@ function AdminScreen({onLogout}){
     else { localStorage.removeItem("club_maintenance"); }
     setMaintenance(next);
     setMsg(next?"メンテナンスモードを開始しました":"メンテナンスモードを終了しました");
+  };
+
+  const toggleScheduled=()=>{
+    const next=!scheduledMaint;
+    localStorage.setItem("club_scheduled_maint", next?"1":"0");
+    setScheduledMaint(next);
+    setMsg(next?"定期メンテナンスを有効にしました":"定期メンテナンスを無効にしました");
   };
 
   const key=a=>`${a.schoolName}::${a.userId}`;
@@ -403,7 +420,20 @@ function AdminScreen({onLogout}){
           </button>
         </div>
 
-        {msg&&<div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#15803d",fontWeight:600}}>✅ {msg}</div>}
+        {/* 定期メンテナンス */}
+        <div style={{background:scheduledMaint?"#fffbeb":"#f9fafb",border:`2px solid ${scheduledMaint?"#fde68a":"#e5e7eb"}`,borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:14,color:scheduledMaint?"#92400e":"#374151"}}>
+              🕙 定期メンテナンス
+            </div>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>
+              {scheduledMaint?"毎週水曜日 10:00〜13:00 自動メンテナンス有効":"毎週水曜日 10:00〜13:00 自動メンテナンス無効"}
+            </div>
+          </div>
+          <button onClick={toggleScheduled} style={{background:scheduledMaint?"#f59e0b":"#e5e7eb",border:"none",borderRadius:99,width:52,height:28,cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+            <span style={{position:"absolute",top:3,left:scheduledMaint?26:3,width:22,height:22,background:"#fff",borderRadius:"50%",transition:"left .2s",display:"block",boxShadow:"0 1px 4px #0003"}}/>
+          </button>
+        </div><div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#15803d",fontWeight:600}}>✅ {msg}</div>}
 
         <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:10}}>登録アカウント（{accounts.length}件）</div>
 
@@ -798,7 +828,10 @@ function App(){
   if(isAdmin) return<AdminScreen onLogout={()=>{localStorage.removeItem("club_is_admin");setIsAdmin(false);}}/>;
   if(!loggedIn) return<LoginScreen onLogin={a=>{setAccount(a);setLoggedIn(true);}} onAdmin={()=>{localStorage.setItem("club_is_admin","1");setIsAdmin(true);}}/>;
   // メンテナンス中は一般ユーザーをブロック
-  if(localStorage.getItem("club_maintenance")==="1") return(
+  const nowCheck=new Date();
+  const scheduledOn=localStorage.getItem("club_scheduled_maint")!=="0";
+  const isAutoMaint=scheduledOn&&nowCheck.getDay()===3&&nowCheck.getHours()>=10&&nowCheck.getHours()<13;
+  if(localStorage.getItem("club_maintenance")==="1"||isAutoMaint) return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e293b,#0f172a)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,padding:36,width:"100%",maxWidth:400,boxShadow:"0 20px 60px #00000033",textAlign:"center"}}>
         <div style={{fontSize:52,marginBottom:16}}>🚧</div>
